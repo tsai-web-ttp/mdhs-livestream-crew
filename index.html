@@ -1,0 +1,1448 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html>
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+  <meta http-equiv="Content-Style-Type" content="text/css">
+  <title></title>
+  <meta name="Generator" content="Cocoa HTML Writer">
+  <meta name="CocoaVersion" content="2685.6">
+  <style type="text/css">
+    p.p1 {margin: 0.0px 0.0px 0.0px 0.0px; font: 12.0px Helvetica}
+    p.p2 {margin: 0.0px 0.0px 0.0px 0.0px; font: 12.0px Helvetica; min-height: 14.0px}
+  </style>
+</head>
+<body>
+<p class="p1">&lt;!DOCTYPE html&gt;</p>
+<p class="p1">&lt;html lang="zh-TW"&gt;</p>
+<p class="p1">&lt;head&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;meta charset="UTF-8"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;title&gt;明道中學直播團隊系統&lt;/title&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;!-- Tailwind CSS --&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;script src="https://cdn.tailwindcss.com"&gt;&lt;/script&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;!-- Lucide Icons --&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;script src="https://unpkg.com/lucide@latest"&gt;&lt;/script&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;!-- React &amp; React DOM --&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;script src="https://unpkg.com/react@18/umd/react.production.min.js"&gt;&lt;/script&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"&gt;&lt;/script&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;!-- Babel for JSX --&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;script src="https://unpkg.com/@babel/standalone/babel.min.js"&gt;&lt;/script&gt;</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;!-- Firebase SDK Module Import --&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;script type="module"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js';</p>
+<p class="p1"><span class="Apple-converted-space">    </span>import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js';</p>
+<p class="p1"><span class="Apple-converted-space">    </span>import { getFirestore, collection, doc, setDoc, deleteDoc, getDoc, onSnapshot } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js';</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">    </span>window.FirebaseSDK = {</p>
+<p class="p1"><span class="Apple-converted-space">      </span>initializeApp,</p>
+<p class="p1"><span class="Apple-converted-space">      </span>getAuth,</p>
+<p class="p1"><span class="Apple-converted-space">      </span>signInWithCustomToken,</p>
+<p class="p1"><span class="Apple-converted-space">      </span>signInAnonymously,</p>
+<p class="p1"><span class="Apple-converted-space">      </span>onAuthStateChanged,</p>
+<p class="p1"><span class="Apple-converted-space">      </span>getFirestore,</p>
+<p class="p1"><span class="Apple-converted-space">      </span>collection,</p>
+<p class="p1"><span class="Apple-converted-space">      </span>doc,</p>
+<p class="p1"><span class="Apple-converted-space">      </span>setDoc,</p>
+<p class="p1"><span class="Apple-converted-space">      </span>deleteDoc,</p>
+<p class="p1"><span class="Apple-converted-space">      </span>getDoc,</p>
+<p class="p1"><span class="Apple-converted-space">      </span>onSnapshot</p>
+<p class="p1"><span class="Apple-converted-space">    </span>};</p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;/script&gt;</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;style&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&amp;display=swap');</p>
+<p class="p1"><span class="Apple-converted-space">    </span>body {</p>
+<p class="p1"><span class="Apple-converted-space">      </span>font-family: 'Noto Sans TC', sans-serif;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>-webkit-tap-highlight-color: transparent;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>}</p>
+<p class="p1"><span class="Apple-converted-space">    </span>.custom-scrollbar::-webkit-scrollbar {</p>
+<p class="p1"><span class="Apple-converted-space">      </span>width: 4px;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>height: 4px;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>}</p>
+<p class="p1"><span class="Apple-converted-space">    </span>.custom-scrollbar::-webkit-scrollbar-track {</p>
+<p class="p1"><span class="Apple-converted-space">      </span>background: #0f172a;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>}</p>
+<p class="p1"><span class="Apple-converted-space">    </span>.custom-scrollbar::-webkit-scrollbar-thumb {</p>
+<p class="p1"><span class="Apple-converted-space">      </span>background: #334155;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>border-radius: 4px;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;/style&gt;</p>
+<p class="p1">&lt;/head&gt;</p>
+<p class="p1">&lt;body class="bg-slate-900 text-slate-100 min-h-screen"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;div id="root"&gt;&lt;/div&gt;</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;script type="text/babel"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>const { useState, useEffect, useMemo } = React;</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">    </span>const appId = typeof __app_id !== 'undefined' ? __app_id : 'live-stream-team-portal';</p>
+<p class="p1"><span class="Apple-converted-space">    </span>const firebaseConfig = typeof __firebase_config !== 'undefined'<span class="Apple-converted-space"> </span></p>
+<p class="p1"><span class="Apple-converted-space">      </span>? JSON.parse(__firebase_config)<span class="Apple-converted-space"> </span></p>
+<p class="p1"><span class="Apple-converted-space">      </span>: { apiKey: "demo", authDomain: "demo", projectId: "demo" };</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">    </span>const INITIAL_MEMBERS = [</p>
+<p class="p1"><span class="Apple-converted-space">      </span>{ id: 'm1', name: '蔡孜鵬', password: '31V714', role: 'admin', title: '總召', dept: 'admin', avatar: '' },</p>
+<p class="p1"><span class="Apple-converted-space">      </span>{ id: 'm2', name: '洪睿頤', password: '31S441', role: 'leader', title: '導播組長', dept: 'director', avatar: '' },</p>
+<p class="p1"><span class="Apple-converted-space">      </span>{ id: 'm3', name: '蕭宥華', password: '31S442', role: 'leader', title: 'CAM2 組長', dept: 'cam2', avatar: '' },</p>
+<p class="p1"><span class="Apple-converted-space">      </span>{ id: 'm4', name: '陳盈融', password: '31S276', role: 'leader', title: '音控組長', dept: 'audio', avatar: '' },</p>
+<p class="p1"><span class="Apple-converted-space">      </span>{ id: 'm10', name: '柯昱丞', password: '31S136', role: 'member', title: '導播組員', dept: 'director', avatar: '' },</p>
+<p class="p1"><span class="Apple-converted-space">      </span>{ id: 'm5', name: '楊奕璿', password: '41S285', role: 'member', title: '導播組員', dept: 'director', avatar: '' },</p>
+<p class="p1"><span class="Apple-converted-space">      </span>{ id: 'm6', name: '陳姿聿', password: '31V621', role: 'member', title: '音控組員', dept: 'audio', avatar: '' },</p>
+<p class="p1"><span class="Apple-converted-space">      </span>{ id: 'm7', name: '胡永璋', password: '41S465', role: 'member', title: '音控組員', dept: 'audio', avatar: '' },</p>
+<p class="p1"><span class="Apple-converted-space">      </span>{ id: 'm9', name: '黃芃瑀', password: '31V583', role: 'member', title: 'CAM1 攝影', dept: 'cam1', avatar: '' },</p>
+<p class="p1"><span class="Apple-converted-space">      </span>{ id: 'm8', name: '戴士捷', password: '41V105', role: 'member', title: 'CAM2 攝影', dept: 'cam2', avatar: '' }</p>
+<p class="p1"><span class="Apple-converted-space">    </span>];</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">    </span>const DUTY_ROLES = [</p>
+<p class="p1"><span class="Apple-converted-space">      </span>{ key: 'director', label: '導播', deptKey: 'director', icon: 'tv' },</p>
+<p class="p1"><span class="Apple-converted-space">      </span>{ key: 'audio', label: '音控', deptKey: 'audio', icon: 'sliders' },</p>
+<p class="p1"><span class="Apple-converted-space">      </span>{ key: 'cam1', label: 'CAM1 攝影', deptKey: 'cam1', icon: 'camera' },</p>
+<p class="p1"><span class="Apple-converted-space">      </span>{ key: 'cam2', label: 'CAM2 攝影', deptKey: 'cam2', icon: 'video' },</p>
+<p class="p1"><span class="Apple-converted-space">      </span>{ key: 'slides', label: '簡報/字卡', deptKey: 'slides', icon: 'file-text' }</p>
+<p class="p1"><span class="Apple-converted-space">    </span>];</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">    </span>const INITIAL_SCHEDULES = [</p>
+<p class="p1"><span class="Apple-converted-space">      </span>{</p>
+<p class="p1"><span class="Apple-converted-space">        </span>id: 'sch-1',</p>
+<p class="p1"><span class="Apple-converted-space">        </span>date: '2026-09-07',</p>
+<p class="p1"><span class="Apple-converted-space">        </span>title: '開學第 2 週常態朝會',</p>
+<p class="p1"><span class="Apple-converted-space">        </span>time: '07:30 - 08:20',</p>
+<p class="p1"><span class="Apple-converted-space">        </span>assignments: { director: ['m10', 'm2'], audio: ['m4', 'm6'], cam1: ['m9'], cam2: ['m3', 'm8'], slides: ['m5', 'm7'] }</p>
+<p class="p1"><span class="Apple-converted-space">      </span>}</p>
+<p class="p1"><span class="Apple-converted-space">    </span>];</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">    </span>const INITIAL_SOP = {</p>
+<p class="p1"><span class="Apple-converted-space">      </span>director: { title: '導播 SOP', items: ['07:20 前抵達導播室，開啟總電源與 OBS', '測試畫面切換'] },</p>
+<p class="p1"><span class="Apple-converted-space">      </span>audio: { title: '音控 SOP', items: ['07:25 開啟混音器與麥克風', '檢查電池電量'] },</p>
+<p class="p1"><span class="Apple-converted-space">      </span>cam1: { title: 'CAM1 SOP', items: ['設置於中央平台，調整水平儀'] },</p>
+<p class="p1"><span class="Apple-converted-space">      </span>cam2: { title: 'CAM2 SOP', items: ['設置側邊特寫角度'] },</p>
+<p class="p1"><span class="Apple-converted-space">      </span>slides: { title: '簡報 SOP', items: ['確認今日朝會 PPT 與名單'] }</p>
+<p class="p1"><span class="Apple-converted-space">    </span>};</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">    </span>function App() {</p>
+<p class="p1"><span class="Apple-converted-space">      </span>const [db, setDb] = useState(null);</p>
+<p class="p1"><span class="Apple-converted-space">      </span>const [authUser, setAuthUser] = useState(null);</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">      </span>const [currentUser, setCurrentUser] = useState(null);</p>
+<p class="p1"><span class="Apple-converted-space">      </span>const [loginPassword, setLoginPassword] = useState('');</p>
+<p class="p1"><span class="Apple-converted-space">      </span>const [loginError, setLoginError] = useState('');</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">      </span>const [members, setMembers] = useState(INITIAL_MEMBERS);</p>
+<p class="p1"><span class="Apple-converted-space">      </span>const [schedules, setSchedules] = useState(INITIAL_SCHEDULES);</p>
+<p class="p1"><span class="Apple-converted-space">      </span>const [repairs, setRepairs] = useState([]);</p>
+<p class="p1"><span class="Apple-converted-space">      </span>const [swaps, setSwaps] = useState([]);</p>
+<p class="p1"><span class="Apple-converted-space">      </span>const [announcement, setAnnouncement] = useState('📢 請全體成員於 09/07 朝會前 10 分鐘完成所有設備校正！');</p>
+<p class="p1"><span class="Apple-converted-space">      </span>const [leaderSuggestions, setLeaderSuggestions] = useState([]);<span class="Apple-converted-space"> </span></p>
+<p class="p1"><span class="Apple-converted-space">      </span>const [sopData, setSopData] = useState(INITIAL_SOP);</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">      </span>const [activeTab, setActiveTab] = useState('dashboard');</p>
+<p class="p1"><span class="Apple-converted-space">      </span>const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">      </span>const [isEditingSchedule, setIsEditingSchedule] = useState(false);</p>
+<p class="p1"><span class="Apple-converted-space">      </span>const [editingScheduleData, setEditingScheduleData] = useState(null);</p>
+<p class="p1"><span class="Apple-converted-space">      </span>const [showAllForRole, setShowAllForRole] = useState({});</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">      </span>const [isSwapModalOpen, setIsSwapModalOpen] = useState(false);</p>
+<p class="p1"><span class="Apple-converted-space">      </span>const [isRepairModalOpen, setIsRepairModalOpen] = useState(false);</p>
+<p class="p1"><span class="Apple-converted-space">      </span>const [isSuggestionModalOpen, setIsSuggestionModalOpen] = useState(false);</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">      </span>const [isMemberModalOpen, setIsMemberModalOpen] = useState(false);</p>
+<p class="p1"><span class="Apple-converted-space">      </span>const [editingMemberData, setEditingMemberData] = useState(null);</p>
+<p class="p1"><span class="Apple-converted-space">      </span>const [isPersonalSettings, setIsPersonalSettings] = useState(false); // 判斷是否為個人設定</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">      </span>const [avatarBase64, setAvatarBase64] = useState('');</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">      </span>const [editingSopKey, setEditingSopKey] = useState(null);</p>
+<p class="p1"><span class="Apple-converted-space">      </span>const [editingSopContent, setEditingSopContent] = useState('');</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">      </span>const [memberSearchQuery, setMemberSearchQuery] = useState('');</p>
+<p class="p1"><span class="Apple-converted-space">      </span>const [message, setMessage] = useState(null);</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">      </span>const showToast = (txt) =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">        </span>setMessage(txt);</p>
+<p class="p1"><span class="Apple-converted-space">        </span>setTimeout(() =&gt; setMessage(null), 3000);</p>
+<p class="p1"><span class="Apple-converted-space">      </span>};</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">      </span>useEffect(() =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">        </span>if (!window.FirebaseSDK) return;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>const { initializeApp, getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged, getFirestore } = window.FirebaseSDK;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>try {</p>
+<p class="p1"><span class="Apple-converted-space">          </span>const app = initializeApp(firebaseConfig);</p>
+<p class="p1"><span class="Apple-converted-space">          </span>const auth = getAuth(app);</p>
+<p class="p1"><span class="Apple-converted-space">          </span>const firestore = getFirestore(app);</p>
+<p class="p1"><span class="Apple-converted-space">          </span>setDb(firestore);</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">          </span>const initAuth = async () =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">            </span>if (typeof __initial_auth_token !== 'undefined' &amp;&amp; __initial_auth_token) {</p>
+<p class="p1"><span class="Apple-converted-space">              </span>await signInWithCustomToken(auth, __initial_auth_token);</p>
+<p class="p1"><span class="Apple-converted-space">            </span>} else {</p>
+<p class="p1"><span class="Apple-converted-space">              </span>await signInAnonymously(auth);</p>
+<p class="p1"><span class="Apple-converted-space">            </span>}</p>
+<p class="p1"><span class="Apple-converted-space">          </span>};</p>
+<p class="p1"><span class="Apple-converted-space">          </span>initAuth();</p>
+<p class="p1"><span class="Apple-converted-space">          </span>const unsubscribe = onAuthStateChanged(auth, (usr) =&gt; setAuthUser(usr));</p>
+<p class="p1"><span class="Apple-converted-space">          </span>return () =&gt; unsubscribe();</p>
+<p class="p1"><span class="Apple-converted-space">        </span>} catch (err) {</p>
+<p class="p1"><span class="Apple-converted-space">          </span>console.error(err);</p>
+<p class="p1"><span class="Apple-converted-space">        </span>}</p>
+<p class="p1"><span class="Apple-converted-space">      </span>}, []);</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">      </span>useEffect(() =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">        </span>if (!db || !authUser) return;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>const { collection, onSnapshot, doc, setDoc } = window.FirebaseSDK;</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">        </span>const schedulesRef = collection(db, 'artifacts', appId, 'public', 'data', 'schedules');</p>
+<p class="p1"><span class="Apple-converted-space">        </span>const annRef = collection(db, 'artifacts', appId, 'public', 'data', 'announcements');</p>
+<p class="p1"><span class="Apple-converted-space">        </span>const suggestionsRef = collection(db, 'artifacts', appId, 'public', 'data', 'suggestions');</p>
+<p class="p1"><span class="Apple-converted-space">        </span>const repairsRef = collection(db, 'artifacts', appId, 'public', 'data', 'repairs');</p>
+<p class="p1"><span class="Apple-converted-space">        </span>const swapsRef = collection(db, 'artifacts', appId, 'public', 'data', 'swaps');</p>
+<p class="p1"><span class="Apple-converted-space">        </span>const membersRef = collection(db, 'artifacts', appId, 'public', 'data', 'members');</p>
+<p class="p1"><span class="Apple-converted-space">        </span>const sopRef = collection(db, 'artifacts', appId, 'public', 'data', 'sops');</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">        </span>const unsubs = [];</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">        </span>unsubs.push(onSnapshot(schedulesRef, (snapshot) =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">          </span>if (snapshot.empty) {</p>
+<p class="p1"><span class="Apple-converted-space">            </span>INITIAL_SCHEDULES.forEach(sch =&gt; setDoc(doc(schedulesRef, sch.id), sch));</p>
+<p class="p1"><span class="Apple-converted-space">          </span>} else {</p>
+<p class="p1"><span class="Apple-converted-space">            </span>const list = snapshot.docs.map(d =&gt; d.data());</p>
+<p class="p1"><span class="Apple-converted-space">            </span>list.sort((a, b) =&gt; new Date(a.date) - new Date(b.date));</p>
+<p class="p1"><span class="Apple-converted-space">            </span>setSchedules(list);</p>
+<p class="p1"><span class="Apple-converted-space">          </span>}</p>
+<p class="p1"><span class="Apple-converted-space">        </span>}));</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">        </span>unsubs.push(onSnapshot(membersRef, (snapshot) =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">          </span>if (snapshot.empty) {</p>
+<p class="p1"><span class="Apple-converted-space">            </span>INITIAL_MEMBERS.forEach(m =&gt; setDoc(doc(membersRef, m.id), m));</p>
+<p class="p1"><span class="Apple-converted-space">          </span>} else {</p>
+<p class="p1"><span class="Apple-converted-space">            </span>const list = snapshot.docs.map(d =&gt; d.data());</p>
+<p class="p1"><span class="Apple-converted-space">            </span>setMembers(list);</p>
+<p class="p1"><span class="Apple-converted-space">            </span>setCurrentUser(prev =&gt; prev ? list.find(m =&gt; m.id === prev.id) || prev : null);</p>
+<p class="p1"><span class="Apple-converted-space">          </span>}</p>
+<p class="p1"><span class="Apple-converted-space">        </span>}));</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">        </span>unsubs.push(onSnapshot(doc(annRef, 'main'), (snap) =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">          </span>if (snap.exists()) setAnnouncement(snap.data().text || '');</p>
+<p class="p1"><span class="Apple-converted-space">          </span>else setDoc(doc(annRef, 'main'), { text: '📢 請全體成員於 09/07 朝會前 10 分鐘完成所有設備校正！' });</p>
+<p class="p1"><span class="Apple-converted-space">        </span>}));</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">        </span>unsubs.push(onSnapshot(doc(sopRef, 'main'), (snap) =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">          </span>if (snap.exists()) setSopData(snap.data().content || INITIAL_SOP);</p>
+<p class="p1"><span class="Apple-converted-space">          </span>else setDoc(doc(sopRef, 'main'), { content: INITIAL_SOP });</p>
+<p class="p1"><span class="Apple-converted-space">        </span>}));</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">        </span>unsubs.push(onSnapshot(suggestionsRef, (snapshot) =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">          </span>const list = snapshot.docs.map(d =&gt; d.data());</p>
+<p class="p1"><span class="Apple-converted-space">          </span>list.sort((a, b) =&gt; b.timestamp - a.timestamp);</p>
+<p class="p1"><span class="Apple-converted-space">          </span>setLeaderSuggestions(list);</p>
+<p class="p1"><span class="Apple-converted-space">        </span>}));</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">        </span>unsubs.push(onSnapshot(repairsRef, (snapshot) =&gt; setRepairs(snapshot.docs.map(d =&gt; d.data()))));</p>
+<p class="p1"><span class="Apple-converted-space">        </span>unsubs.push(onSnapshot(swapsRef, (snapshot) =&gt; setSwaps(snapshot.docs.map(d =&gt; d.data()))));</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">        </span>return () =&gt; unsubs.forEach(unsub =&gt; unsub());</p>
+<p class="p1"><span class="Apple-converted-space">      </span>}, [db, authUser]);</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">      </span>useEffect(() =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">        </span>if (window.lucide) {</p>
+<p class="p1"><span class="Apple-converted-space">          </span>try { window.lucide.createIcons(); } catch(err) {}</p>
+<p class="p1"><span class="Apple-converted-space">        </span>}</p>
+<p class="p1"><span class="Apple-converted-space">      </span>});</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">      </span>const handleLogin = (e) =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">        </span>e.preventDefault();</p>
+<p class="p1"><span class="Apple-converted-space">        </span>setLoginError('');</p>
+<p class="p1"><span class="Apple-converted-space">        </span>const foundMember = members.find(m =&gt; m.password.toLowerCase() === loginPassword.trim().toLowerCase());</p>
+<p class="p1"><span class="Apple-converted-space">        </span>if (foundMember) {</p>
+<p class="p1"><span class="Apple-converted-space">          </span>setCurrentUser(foundMember);</p>
+<p class="p1"><span class="Apple-converted-space">          </span>setLoginPassword('');</p>
+<p class="p1"><span class="Apple-converted-space">          </span>showToast(`歡迎回來，${foundMember.name}！`);</p>
+<p class="p1"><span class="Apple-converted-space">        </span>} else {</p>
+<p class="p1"><span class="Apple-converted-space">          </span>setLoginError('密碼錯誤，請重新確認');</p>
+<p class="p1"><span class="Apple-converted-space">        </span>}</p>
+<p class="p1"><span class="Apple-converted-space">      </span>};</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">      </span>const handleLogout = () =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">        </span>setCurrentUser(null);</p>
+<p class="p1"><span class="Apple-converted-space">        </span>showToast('已安全登出');</p>
+<p class="p1"><span class="Apple-converted-space">      </span>};</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">      </span>const handleImageUpload = (e) =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">        </span>const file = e.target.files[0];</p>
+<p class="p1"><span class="Apple-converted-space">        </span>if (file) {</p>
+<p class="p1"><span class="Apple-converted-space">          </span>const reader = new FileReader();</p>
+<p class="p1"><span class="Apple-converted-space">          </span>reader.onloadend = () =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">            </span>setAvatarBase64(reader.result);</p>
+<p class="p1"><span class="Apple-converted-space">          </span>};</p>
+<p class="p1"><span class="Apple-converted-space">          </span>reader.readAsDataURL(file);</p>
+<p class="p1"><span class="Apple-converted-space">        </span>}</p>
+<p class="p1"><span class="Apple-converted-space">      </span>};</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">      </span>const handlePostSuggestion = async (e) =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">        </span>e.preventDefault();</p>
+<p class="p1"><span class="Apple-converted-space">        </span>const formData = new FormData(e.target);</p>
+<p class="p1"><span class="Apple-converted-space">        </span>const sugObj = {</p>
+<p class="p1"><span class="Apple-converted-space">          </span>id: `sug-${Date.now()}`,</p>
+<p class="p1"><span class="Apple-converted-space">          </span>authorId: currentUser.id,</p>
+<p class="p1"><span class="Apple-converted-space">          </span>authorName: currentUser.name,</p>
+<p class="p1"><span class="Apple-converted-space">          </span>authorTitle: currentUser.title,</p>
+<p class="p1"><span class="Apple-converted-space">          </span>content: formData.get('content'),</p>
+<p class="p1"><span class="Apple-converted-space">          </span>timestamp: Date.now()</p>
+<p class="p1"><span class="Apple-converted-space">        </span>};</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">        </span>if (db) {</p>
+<p class="p1"><span class="Apple-converted-space">          </span>const { doc, setDoc } = window.FirebaseSDK;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'suggestions', sugObj.id), sugObj);</p>
+<p class="p1"><span class="Apple-converted-space">          </span>showToast('組長公告/建議已發布！');</p>
+<p class="p1"><span class="Apple-converted-space">        </span>} else {</p>
+<p class="p1"><span class="Apple-converted-space">          </span>setLeaderSuggestions([sugObj, ...leaderSuggestions]);</p>
+<p class="p1"><span class="Apple-converted-space">          </span>showToast('已發布');</p>
+<p class="p1"><span class="Apple-converted-space">        </span>}</p>
+<p class="p1"><span class="Apple-converted-space">        </span>setIsSuggestionModalOpen(false);</p>
+<p class="p1"><span class="Apple-converted-space">      </span>};</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">      </span>const handleDeleteSuggestion = async (sugId) =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">        </span>if (confirm('確定要刪除這則公告/建議嗎？')) {</p>
+<p class="p1"><span class="Apple-converted-space">          </span>if (db) {</p>
+<p class="p1"><span class="Apple-converted-space">            </span>const { doc, deleteDoc } = window.FirebaseSDK;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'suggestions', sugId));</p>
+<p class="p1"><span class="Apple-converted-space">            </span>showToast('已刪除公告');</p>
+<p class="p1"><span class="Apple-converted-space">          </span>} else {</p>
+<p class="p1"><span class="Apple-converted-space">            </span>setLeaderSuggestions(leaderSuggestions.filter(s =&gt; s.id !== sugId));</p>
+<p class="p1"><span class="Apple-converted-space">            </span>showToast('已刪除');</p>
+<p class="p1"><span class="Apple-converted-space">          </span>}</p>
+<p class="p1"><span class="Apple-converted-space">        </span>}</p>
+<p class="p1"><span class="Apple-converted-space">      </span>};</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">      </span>const handleSaveSop = async (roleKey) =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">        </span>const lines = editingSopContent.split('\n').filter(l =&gt; l.trim() !== '');</p>
+<p class="p1"><span class="Apple-converted-space">        </span>const updatedSop = {</p>
+<p class="p1"><span class="Apple-converted-space">          </span>...sopData,</p>
+<p class="p1"><span class="Apple-converted-space">          </span>[roleKey]: {</p>
+<p class="p1"><span class="Apple-converted-space">            </span>...sopData[roleKey],</p>
+<p class="p1"><span class="Apple-converted-space">            </span>items: lines</p>
+<p class="p1"><span class="Apple-converted-space">          </span>}</p>
+<p class="p1"><span class="Apple-converted-space">        </span>};</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">        </span>if (db) {</p>
+<p class="p1"><span class="Apple-converted-space">          </span>const { doc, setDoc } = window.FirebaseSDK;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'sops', 'main'), { content: updatedSop });</p>
+<p class="p1"><span class="Apple-converted-space">          </span>showToast('SOP 已成功更新！');</p>
+<p class="p1"><span class="Apple-converted-space">        </span>} else {</p>
+<p class="p1"><span class="Apple-converted-space">          </span>setSopData(updatedSop);</p>
+<p class="p1"><span class="Apple-converted-space">          </span>showToast('SOP 已更新');</p>
+<p class="p1"><span class="Apple-converted-space">        </span>}</p>
+<p class="p1"><span class="Apple-converted-space">        </span>setEditingSopKey(null);</p>
+<p class="p1"><span class="Apple-converted-space">      </span>};</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">      </span>const handleOpenScheduleModal = (sch = null) =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">        </span>if (sch) setEditingScheduleData(JSON.parse(JSON.stringify(sch)));</p>
+<p class="p1"><span class="Apple-converted-space">        </span>else {</p>
+<p class="p1"><span class="Apple-converted-space">          </span>setEditingScheduleData({</p>
+<p class="p1"><span class="Apple-converted-space">            </span>id: `sch-${Date.now()}`,</p>
+<p class="p1"><span class="Apple-converted-space">            </span>date: '2026-09-28',</p>
+<p class="p1"><span class="Apple-converted-space">            </span>title: '新朝會排班',</p>
+<p class="p1"><span class="Apple-converted-space">            </span>time: '07:30 - 08:20',</p>
+<p class="p1"><span class="Apple-converted-space">            </span>assignments: { director: [], audio: [], cam1: [], cam2: [], slides: [] }</p>
+<p class="p1"><span class="Apple-converted-space">          </span>});</p>
+<p class="p1"><span class="Apple-converted-space">        </span>}</p>
+<p class="p1"><span class="Apple-converted-space">        </span>setShowAllForRole({});</p>
+<p class="p1"><span class="Apple-converted-space">        </span>setIsEditingSchedule(true);</p>
+<p class="p1"><span class="Apple-converted-space">      </span>};</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">      </span>const handleToggleMemberAssignment = (roleKey, memberId) =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">        </span>if (!editingScheduleData) return;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>setEditingScheduleData(prev =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">          </span>if (!prev) return null;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>const assignments = prev.assignments || {};</p>
+<p class="p1"><span class="Apple-converted-space">          </span>const currentList = Array.isArray(assignments[roleKey]) ? assignments[roleKey] : [];</p>
+<p class="p1"><span class="Apple-converted-space">          </span>const isAssigned = currentList.includes(memberId);</p>
+<p class="p1"><span class="Apple-converted-space">          </span>const newList = isAssigned ? currentList.filter(id =&gt; id !== memberId) : [...currentList, memberId];</p>
+<p class="p1"><span class="Apple-converted-space">          </span>return { ...prev, assignments: { ...assignments, [roleKey]: newList } };</p>
+<p class="p1"><span class="Apple-converted-space">        </span>});</p>
+<p class="p1"><span class="Apple-converted-space">      </span>};</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">      </span>const handleSaveScheduleSubmit = async (e) =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">        </span>e.preventDefault();</p>
+<p class="p1"><span class="Apple-converted-space">        </span>if (!editingScheduleData) return;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>if (db) {</p>
+<p class="p1"><span class="Apple-converted-space">          </span>const { doc, setDoc } = window.FirebaseSDK;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'schedules', editingScheduleData.id), editingScheduleData);</p>
+<p class="p1"><span class="Apple-converted-space">          </span>showToast('班表已即時同步！');</p>
+<p class="p1"><span class="Apple-converted-space">        </span>} else {</p>
+<p class="p1"><span class="Apple-converted-space">          </span>setSchedules(schedules.map(s =&gt; s.id === editingScheduleData.id ? editingScheduleData : s));</p>
+<p class="p1"><span class="Apple-converted-space">          </span>showToast('已儲存班表');</p>
+<p class="p1"><span class="Apple-converted-space">        </span>}</p>
+<p class="p1"><span class="Apple-converted-space">        </span>setIsEditingSchedule(false);</p>
+<p class="p1"><span class="Apple-converted-space">        </span>setEditingScheduleData(null);</p>
+<p class="p1"><span class="Apple-converted-space">      </span>};</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">      </span>const handleUpdateAnnouncement = async () =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">        </span>const newAnn = prompt('編輯主要公告：', announcement);</p>
+<p class="p1"><span class="Apple-converted-space">        </span>if (newAnn) {</p>
+<p class="p1"><span class="Apple-converted-space">          </span>if (db) {</p>
+<p class="p1"><span class="Apple-converted-space">            </span>const { doc, setDoc } = window.FirebaseSDK;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'announcements', 'main'), { text: newAnn });</p>
+<p class="p1"><span class="Apple-converted-space">            </span>showToast('公告已廣播！');</p>
+<p class="p1"><span class="Apple-converted-space">          </span>} else {</p>
+<p class="p1"><span class="Apple-converted-space">            </span>setAnnouncement(newAnn);</p>
+<p class="p1"><span class="Apple-converted-space">            </span>showToast('公告已更新');</p>
+<p class="p1"><span class="Apple-converted-space">          </span>}</p>
+<p class="p1"><span class="Apple-converted-space">        </span>}</p>
+<p class="p1"><span class="Apple-converted-space">      </span>};</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">      </span>const handleRequestSwap = async (e) =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">        </span>e.preventDefault();</p>
+<p class="p1"><span class="Apple-converted-space">        </span>const formData = new FormData(e.target);</p>
+<p class="p1"><span class="Apple-converted-space">        </span>const newSwap = {</p>
+<p class="p1"><span class="Apple-converted-space">          </span>id: `sw-${Date.now()}`,</p>
+<p class="p1"><span class="Apple-converted-space">          </span>requester: currentUser.name,</p>
+<p class="p1"><span class="Apple-converted-space">          </span>targetDate: formData.get('targetDate'),</p>
+<p class="p1"><span class="Apple-converted-space">          </span>roleLabel: formData.get('roleLabel'),</p>
+<p class="p1"><span class="Apple-converted-space">          </span>reason: formData.get('reason'),</p>
+<p class="p1"><span class="Apple-converted-space">          </span>status: 'pending'</p>
+<p class="p1"><span class="Apple-converted-space">        </span>};</p>
+<p class="p1"><span class="Apple-converted-space">        </span>if (db) {</p>
+<p class="p1"><span class="Apple-converted-space">          </span>const { doc, setDoc } = window.FirebaseSDK;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'swaps', newSwap.id), newSwap);</p>
+<p class="p1"><span class="Apple-converted-space">          </span>showToast('請假/換班申請已送出！');</p>
+<p class="p1"><span class="Apple-converted-space">        </span>} else {</p>
+<p class="p1"><span class="Apple-converted-space">          </span>setSwaps([newSwap, ...swaps]);</p>
+<p class="p1"><span class="Apple-converted-space">          </span>showToast('申請已送出');</p>
+<p class="p1"><span class="Apple-converted-space">        </span>}</p>
+<p class="p1"><span class="Apple-converted-space">        </span>setIsSwapModalOpen(false);</p>
+<p class="p1"><span class="Apple-converted-space">      </span>};</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">      </span>const handleUpdateSwapStatus = async (swapId, newStatus) =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">        </span>const targetSwap = swaps.find(s =&gt; s.id === swapId);</p>
+<p class="p1"><span class="Apple-converted-space">        </span>if (!targetSwap) return;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>const updated = { ...targetSwap, status: newStatus };</p>
+<p class="p1"><span class="Apple-converted-space">        </span>if (db) {</p>
+<p class="p1"><span class="Apple-converted-space">          </span>const { doc, setDoc } = window.FirebaseSDK;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'swaps', swapId), updated);</p>
+<p class="p1"><span class="Apple-converted-space">          </span>showToast(`已${newStatus === 'approved' ? '核准' : '駁回'}該請假申請！`);</p>
+<p class="p1"><span class="Apple-converted-space">        </span>} else {</p>
+<p class="p1"><span class="Apple-converted-space">          </span>setSwaps(swaps.map(s =&gt; s.id === swapId ? updated : s));</p>
+<p class="p1"><span class="Apple-converted-space">          </span>showToast(`已更新申請狀態`);</p>
+<p class="p1"><span class="Apple-converted-space">        </span>}</p>
+<p class="p1"><span class="Apple-converted-space">      </span>};</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">      </span>const handleReportRepair = async (e) =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">        </span>e.preventDefault();</p>
+<p class="p1"><span class="Apple-converted-space">        </span>const formData = new FormData(e.target);</p>
+<p class="p1"><span class="Apple-converted-space">        </span>const newRepair = {</p>
+<p class="p1"><span class="Apple-converted-space">          </span>id: `r-${Date.now()}`,</p>
+<p class="p1"><span class="Apple-converted-space">          </span>item: formData.get('item'),</p>
+<p class="p1"><span class="Apple-converted-space">          </span>reporter: currentUser.name,</p>
+<p class="p1"><span class="Apple-converted-space">          </span>date: new Date().toISOString().split('T')[0],</p>
+<p class="p1"><span class="Apple-converted-space">          </span>issue: formData.get('issue'),</p>
+<p class="p1"><span class="Apple-converted-space">          </span>status: 'pending'</p>
+<p class="p1"><span class="Apple-converted-space">        </span>};</p>
+<p class="p1"><span class="Apple-converted-space">        </span>if (db) {</p>
+<p class="p1"><span class="Apple-converted-space">          </span>const { doc, setDoc } = window.FirebaseSDK;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'repairs', newRepair.id), newRepair);</p>
+<p class="p1"><span class="Apple-converted-space">          </span>showToast('報修單已提交！');</p>
+<p class="p1"><span class="Apple-converted-space">        </span>} else {</p>
+<p class="p1"><span class="Apple-converted-space">          </span>setRepairs([newRepair, ...repairs]);</p>
+<p class="p1"><span class="Apple-converted-space">          </span>showToast('已提交');</p>
+<p class="p1"><span class="Apple-converted-space">        </span>}</p>
+<p class="p1"><span class="Apple-converted-space">        </span>setIsRepairModalOpen(false);</p>
+<p class="p1"><span class="Apple-converted-space">      </span>};</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">      </span>// 儲存成員 / 個人設定</p>
+<p class="p1"><span class="Apple-converted-space">      </span>const handleSaveMemberSubmit = async (e) =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">        </span>e.preventDefault();</p>
+<p class="p1"><span class="Apple-converted-space">        </span>const formData = new FormData(e.target);</p>
+<p class="p1"><span class="Apple-converted-space">        </span>const finalAvatar = avatarBase64 || (editingMemberData ? editingMemberData.avatar : '');</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">        </span>let memberObj;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>if (isPersonalSettings) {</p>
+<p class="p1"><span class="Apple-converted-space">          </span>// 個人設定模式：只能改姓名、頭貼、密碼</p>
+<p class="p1"><span class="Apple-converted-space">          </span>memberObj = {</p>
+<p class="p1"><span class="Apple-converted-space">            </span>...currentUser,</p>
+<p class="p1"><span class="Apple-converted-space">            </span>name: formData.get('name'),</p>
+<p class="p1"><span class="Apple-converted-space">            </span>password: formData.get('password'),</p>
+<p class="p1"><span class="Apple-converted-space">            </span>avatar: finalAvatar</p>
+<p class="p1"><span class="Apple-converted-space">          </span>};</p>
+<p class="p1"><span class="Apple-converted-space">        </span>} else {</p>
+<p class="p1"><span class="Apple-converted-space">          </span>// 總召管理模式：可改全部</p>
+<p class="p1"><span class="Apple-converted-space">          </span>memberObj = {</p>
+<p class="p1"><span class="Apple-converted-space">            </span>id: editingMemberData ? editingMemberData.id : `m-${Date.now()}`,</p>
+<p class="p1"><span class="Apple-converted-space">            </span>name: formData.get('name'),</p>
+<p class="p1"><span class="Apple-converted-space">            </span>password: formData.get('password'),</p>
+<p class="p1"><span class="Apple-converted-space">            </span>role: formData.get('role'),</p>
+<p class="p1"><span class="Apple-converted-space">            </span>title: formData.get('title'),</p>
+<p class="p1"><span class="Apple-converted-space">            </span>dept: formData.get('dept'),</p>
+<p class="p1"><span class="Apple-converted-space">            </span>avatar: finalAvatar</p>
+<p class="p1"><span class="Apple-converted-space">          </span>};</p>
+<p class="p1"><span class="Apple-converted-space">        </span>}</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">        </span>if (db) {</p>
+<p class="p1"><span class="Apple-converted-space">          </span>const { doc, setDoc } = window.FirebaseSDK;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'members', memberObj.id), memberObj);</p>
+<p class="p1"><span class="Apple-converted-space">          </span>showToast('資料已成功更新！');</p>
+<p class="p1"><span class="Apple-converted-space">        </span>} else {</p>
+<p class="p1"><span class="Apple-converted-space">          </span>if (editingMemberData || isPersonalSettings) {</p>
+<p class="p1"><span class="Apple-converted-space">            </span>setMembers(members.map(m =&gt; m.id === memberObj.id ? memberObj : m));</p>
+<p class="p1"><span class="Apple-converted-space">          </span>} else {</p>
+<p class="p1"><span class="Apple-converted-space">            </span>setMembers([...members, memberObj]);</p>
+<p class="p1"><span class="Apple-converted-space">          </span>}</p>
+<p class="p1"><span class="Apple-converted-space">          </span>showToast('操作成功');</p>
+<p class="p1"><span class="Apple-converted-space">        </span>}</p>
+<p class="p1"><span class="Apple-converted-space">        </span>setIsMemberModalOpen(false);</p>
+<p class="p1"><span class="Apple-converted-space">        </span>setEditingMemberData(null);</p>
+<p class="p1"><span class="Apple-converted-space">        </span>setIsPersonalSettings(false);</p>
+<p class="p1"><span class="Apple-converted-space">        </span>setAvatarBase64('');</p>
+<p class="p1"><span class="Apple-converted-space">      </span>};</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">      </span>const handleDeleteMember = async (memberId, memberName) =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">        </span>if (confirm(`確定要刪除成員【${memberName}】嗎？`)) {</p>
+<p class="p1"><span class="Apple-converted-space">          </span>if (db) {</p>
+<p class="p1"><span class="Apple-converted-space">            </span>const { doc, deleteDoc } = window.FirebaseSDK;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'members', memberId));</p>
+<p class="p1"><span class="Apple-converted-space">            </span>showToast(`已刪除：${memberName}`);</p>
+<p class="p1"><span class="Apple-converted-space">          </span>} else {</p>
+<p class="p1"><span class="Apple-converted-space">            </span>setMembers(members.filter(m =&gt; m.id !== memberId));</p>
+<p class="p1"><span class="Apple-converted-space">            </span>showToast(`已刪除：${memberName}`);</p>
+<p class="p1"><span class="Apple-converted-space">          </span>}</p>
+<p class="p1"><span class="Apple-converted-space">        </span>}</p>
+<p class="p1"><span class="Apple-converted-space">      </span>};</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">      </span>const copyToClipboard = (text) =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">        </span>const input = document.createElement('textarea');</p>
+<p class="p1"><span class="Apple-converted-space">        </span>input.value = text;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>document.body.appendChild(input);</p>
+<p class="p1"><span class="Apple-converted-space">        </span>input.select();</p>
+<p class="p1"><span class="Apple-converted-space">        </span>document.execCommand('copy');</p>
+<p class="p1"><span class="Apple-converted-space">        </span>document.body.removeChild(input);</p>
+<p class="p1"><span class="Apple-converted-space">        </span>showToast('已複製：' + text);</p>
+<p class="p1"><span class="Apple-converted-space">      </span>};</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">      </span>const latestSchedule = useMemo(() =&gt; schedules[0] || null, [schedules]);</p>
+<p class="p1"><span class="Apple-converted-space">      </span>const upcomingSchedules = useMemo(() =&gt; schedules.slice(1), [schedules]);</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">      </span>const isUserInSchedule = (sch, userId) =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">        </span>if (!sch || !sch.assignments) return false;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>return Object.values(sch.assignments).some(memberIds =&gt; Array.isArray(memberIds) &amp;&amp; memberIds.includes(userId));</p>
+<p class="p1"><span class="Apple-converted-space">      </span>};</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">      </span>// 取得當前使用者被排程過的所有日期 (供請假下拉選單使用)</p>
+<p class="p1"><span class="Apple-converted-space">      </span>const userScheduledDates = useMemo(() =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">        </span>if (!currentUser) return [];</p>
+<p class="p1"><span class="Apple-converted-space">        </span>return schedules.filter(sch =&gt; isUserInSchedule(sch, currentUser.id)).map(sch =&gt; ({</p>
+<p class="p1"><span class="Apple-converted-space">          </span>date: sch.date,</p>
+<p class="p1"><span class="Apple-converted-space">          </span>title: sch.title</p>
+<p class="p1"><span class="Apple-converted-space">        </span>}));</p>
+<p class="p1"><span class="Apple-converted-space">      </span>}, [schedules, currentUser]);</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">      </span>const sortedMembers = useMemo(() =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">        </span>const roleOrder = { admin: 1, leader: 2, member: 3 };</p>
+<p class="p1"><span class="Apple-converted-space">        </span>return [...members].sort((a, b) =&gt; (roleOrder[a.role] || 3) - (roleOrder[b.role] || 3));</p>
+<p class="p1"><span class="Apple-converted-space">      </span>}, [members]);</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">      </span>if (!currentUser) {</p>
+<p class="p1"><span class="Apple-converted-space">        </span>return (</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;div className="min-h-screen bg-slate-900 flex items-center justify-center p-4 relative"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>{message &amp;&amp; (</p>
+<p class="p1"><span class="Apple-converted-space">              </span>&lt;div className="fixed bottom-6 left-4 right-4 sm:left-auto sm:right-6 z-50 bg-indigo-600 text-white px-4 py-3 rounded-2xl shadow-2xl border border-indigo-400 flex items-center space-x-2 animate-bounce"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                </span>&lt;i data-lucide="check-circle" className="w-5 h-5 flex-shrink-0"&gt;&lt;/i&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                </span>&lt;span className="font-medium text-xs md:text-sm"&gt;{message}&lt;/span&gt;</p>
+<p class="p1"><span class="Apple-converted-space">              </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>)}</p>
+<p class="p1"><span class="Apple-converted-space">            </span>&lt;div className="bg-slate-800 border border-slate-700 rounded-3xl w-full max-w-sm p-6 sm:p-8 shadow-2xl space-y-6"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">              </span>&lt;div className="text-center space-y-2"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                </span>&lt;div className="inline-flex bg-gradient-to-tr from-indigo-500 to-rose-500 p-3 rounded-2xl text-white shadow-lg mb-2"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>&lt;i data-lucide="radio" className="w-8 h-8"&gt;&lt;/i&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                </span>&lt;h1 className="text-xl font-bold text-white tracking-wide"&gt;明道中學直播團隊系統&lt;/h1&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                </span>&lt;p className="text-xs text-slate-400"&gt;請輸入個人密碼登入系統&lt;/p&gt;</p>
+<p class="p1"><span class="Apple-converted-space">              </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">              </span>&lt;form onSubmit={handleLogin} className="space-y-4 text-xs"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                </span>{loginError &amp;&amp; (</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>&lt;div className="bg-rose-500/10 border border-rose-500/30 text-rose-300 p-3 rounded-xl text-center font-medium"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>{loginError}</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                </span>)}</p>
+<p class="p1"><span class="Apple-converted-space">                </span>&lt;div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>&lt;label className="block text-slate-300 font-semibold mb-1.5 text-center"&gt;個人密碼 (不限大小寫)&lt;/label&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>&lt;input</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>type="password"</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>value={loginPassword}</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>onChange={(e) =&gt; setLoginPassword(e.target.value)}</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>placeholder="請輸入密碼"</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>autoFocus</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>required</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>className="w-full bg-slate-900 border border-slate-700 text-white rounded-xl p-3.5 text-base text-center font-mono tracking-widest focus:outline-none focus:border-indigo-500"</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>/&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                </span>&lt;button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm py-3 rounded-xl shadow-lg transition duration-200"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>直接登入</p>
+<p class="p1"><span class="Apple-converted-space">                </span>&lt;/button&gt;</p>
+<p class="p1"><span class="Apple-converted-space">              </span>&lt;/form&gt;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>);</p>
+<p class="p1"><span class="Apple-converted-space">      </span>}</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">      </span>return (</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;div className="flex flex-col md:flex-row min-h-screen bg-slate-900 text-slate-100 relative"&gt;</p>
+<p class="p2"><span class="Apple-converted-space">          </span></p>
+<p class="p1"><span class="Apple-converted-space">          </span>{message &amp;&amp; (</p>
+<p class="p1"><span class="Apple-converted-space">            </span>&lt;div className="fixed bottom-6 left-4 right-4 md:left-auto md:right-6 z-50 bg-indigo-600 text-white px-4 py-3 rounded-2xl shadow-2xl border border-indigo-400 flex items-center justify-between space-x-2 animate-bounce"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">              </span>&lt;div className="flex items-center space-x-2"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                </span>&lt;i data-lucide="check-circle" className="w-5 h-5 flex-shrink-0"&gt;&lt;/i&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                </span>&lt;span className="font-medium text-xs md:text-sm"&gt;{message}&lt;/span&gt;</p>
+<p class="p1"><span class="Apple-converted-space">              </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>)}</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;header className="md:hidden bg-slate-800 border-b border-slate-700 px-4 py-3 flex items-center justify-between sticky top-0 z-40"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>&lt;div className="flex items-center space-x-2"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">              </span>&lt;div className="bg-gradient-to-tr from-indigo-500 to-rose-500 p-1.5 rounded-lg text-white"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                </span>&lt;i data-lucide="radio" className="w-5 h-5"&gt;&lt;/i&gt;</p>
+<p class="p1"><span class="Apple-converted-space">              </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">              </span>&lt;span className="font-bold text-base text-white"&gt;明道直播團隊&lt;/span&gt;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>&lt;button onClick={() =&gt; setIsMobileMenuOpen(!isMobileMenuOpen)} className="p-2 bg-slate-700 text-slate-200 rounded-lg"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">              </span>&lt;i data-lucide={isMobileMenuOpen ? "x" : "menu"} className="w-5 h-5"&gt;&lt;/i&gt;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>&lt;/button&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;/header&gt;</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;aside className={`</p>
+<p class="p1"><span class="Apple-converted-space">            </span>fixed md:static inset-x-0 top-[53px] bottom-0 z-30 bg-slate-800 border-r border-slate-700 p-4 flex flex-col justify-between transition-transform duration-300 md:translate-x-0 w-full md:w-64</p>
+<p class="p1"><span class="Apple-converted-space">            </span>${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}</p>
+<p class="p1"><span class="Apple-converted-space">          </span>`}&gt;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>&lt;div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">              </span>&lt;div className="hidden md:flex items-center space-x-3 p-2 mb-6 border-b border-slate-700 pb-4"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                </span>&lt;div className="bg-gradient-to-tr from-indigo-500 to-rose-500 p-2 rounded-xl text-white shadow-lg"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>&lt;i data-lucide="radio" className="w-6 h-6"&gt;&lt;/i&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                </span>&lt;div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>&lt;h1 className="font-bold text-sm text-white leading-tight"&gt;明道中學直播團隊&lt;/h1&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>&lt;span className="text-[11px] text-slate-400"&gt;活動與朝會排班系統&lt;/span&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">              </span>&lt;/div&gt;</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">              </span>&lt;nav className="space-y-1.5"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                </span>{[</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>{ id: 'dashboard', label: '全體班表', icon: 'layout-dashboard' },</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>{ id: 'sop', label: '崗位操作說明與注意事項', icon: 'clipboard-list' },</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>{ id: 'repairs', label: '設備報修系統', icon: 'wrench', badge: repairs.filter(r =&gt; r.status === 'pending').length },</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>{ id: 'swaps', label: '請假與換班審核', icon: 'arrow-left-right', badge: currentUser.role === 'admin' ? swaps.filter(s =&gt; s.status === 'pending').length : 0 },</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>...(currentUser.role === 'admin' ? [{ id: 'admin', label: '權限與成員管理', icon: 'shield-check' }] : [])</p>
+<p class="p1"><span class="Apple-converted-space">                </span>].map(item =&gt; (</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>&lt;button</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>key={item.id}</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>onClick={() =&gt; { setActiveTab(item.id); setIsMobileMenuOpen(false); }}</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>className={`w-full flex items-center justify-between px-3.5 py-3 md:py-2.5 rounded-xl text-xs md:text-sm font-medium transition ${activeTab === item.id ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-300 hover:bg-slate-700/50'}`}</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>&lt;div className="flex items-center space-x-3"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                      </span>&lt;i data-lucide={item.icon} className="w-4 h-4 flex-shrink-0"&gt;&lt;/i&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                      </span>&lt;span&gt;{item.label}&lt;/span&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>{item.badge &gt; 0 &amp;&amp; (</p>
+<p class="p1"><span class="Apple-converted-space">                      </span>&lt;span className="bg-rose-500 text-white text-[10px] px-2 py-0.5 rounded-full font-bold"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                        </span>{item.badge}</p>
+<p class="p1"><span class="Apple-converted-space">                      </span>&lt;/span&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>)}</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>&lt;/button&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                </span>))}</p>
+<p class="p1"><span class="Apple-converted-space">              </span>&lt;/nav&gt;</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">              </span>&lt;div className="mt-6 pt-4 border-t border-slate-700"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                </span>&lt;span className="text-[11px] font-semibold text-slate-400 tracking-wider uppercase px-2"&gt;常用捷徑&lt;/span&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                </span>&lt;div className="mt-2 space-y-1"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>&lt;a href="https://drive.google.com/drive/folders/1ZNwZxahyezQzIkaYZI6pvnYi9rc3Eqj3?usp=drive_link" target="_blank" rel="noreferrer" className="flex items-center space-x-3 px-3 py-2 rounded-lg text-xs font-medium text-slate-300 hover:bg-slate-700/50"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>&lt;i data-lucide="folder-git-2" className="w-4 h-4 text-emerald-400"&gt;&lt;/i&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>&lt;span&gt;線上朝會Google 雲端硬碟&lt;/span&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>&lt;/a&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>&lt;a href="https://youtube.com/playlist?list=PLgRnx0Z3J6Wvs3_pbeoUIR-DgCsn0x3hK&amp;si=4y15odsy2ZVRT-Ft" target="_blank" rel="noreferrer" className="flex items-center space-x-3 px-3 py-2 rounded-lg text-xs font-medium text-slate-300 hover:bg-slate-700/50"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>&lt;i data-lucide="youtube" className="w-4 h-4 text-rose-500"&gt;&lt;/i&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>&lt;span&gt;直播 YT 頻道&lt;/span&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>&lt;/a&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">              </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>&lt;/div&gt;</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">            </span>&lt;div className="mt-6 pt-4 border-t border-slate-700 flex items-center justify-between"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">              </span>&lt;button onClick={() =&gt; { setEditingMemberData(currentUser); setIsPersonalSettings(true); setAvatarBase64(''); setIsMemberModalOpen(true); }} className="text-xs text-indigo-400 hover:underline"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                </span>⚙️ 個人設定</p>
+<p class="p1"><span class="Apple-converted-space">              </span>&lt;/button&gt;</p>
+<p class="p1"><span class="Apple-converted-space">              </span>&lt;button onClick={handleLogout} className="flex items-center space-x-1 bg-slate-900 hover:bg-rose-900/40 text-slate-300 hover:text-rose-300 border border-slate-700 px-3 py-1.5 rounded-xl text-xs font-medium transition"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                </span>&lt;i data-lucide="log-out" className="w-3.5 h-3.5"&gt;&lt;/i&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                </span>&lt;span&gt;登出&lt;/span&gt;</p>
+<p class="p1"><span class="Apple-converted-space">              </span>&lt;/button&gt;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;/aside&gt;</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;main className="flex-1 p-3 md:p-8 overflow-y-auto custom-scrollbar space-y-4 md:space-y-6"&gt;</p>
+<p class="p2"><span class="Apple-converted-space">            </span></p>
+<p class="p1"><span class="Apple-converted-space">            </span>&lt;div className="bg-gradient-to-r from-slate-800 via-indigo-950/50 to-slate-800 border border-indigo-500/40 rounded-2xl p-3 md:p-4 flex items-center justify-between shadow-lg"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">              </span>&lt;div className="flex items-center space-x-3"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                </span>&lt;div className="relative"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>{currentUser.avatar ? (</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>&lt;img src={currentUser.avatar} alt="Avatar" className="w-10 h-10 rounded-full object-cover border-2 border-indigo-500" /&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>) : (</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>&lt;div className="w-10 h-10 rounded-full bg-slate-700 border-2 border-indigo-500 flex items-center justify-center text-slate-300 font-bold text-sm"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                      </span>{currentUser.name.charAt(0)}</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>)}</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>&lt;span className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-slate-900 ${</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>currentUser.role === 'admin' ? 'bg-emerald-400' : currentUser.role === 'leader' ? 'bg-amber-400' : 'bg-blue-400'</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>}`}&gt;&lt;/span&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                </span>&lt;div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>&lt;div className="flex items-center space-x-2"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>&lt;span className="text-xs text-slate-400"&gt;當前登入：&lt;/span&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>&lt;span className="text-sm font-bold text-white"&gt;{currentUser.name}&lt;/span&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>&lt;span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${</p>
+<p class="p1"><span class="Apple-converted-space">                      </span>currentUser.role === 'admin' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40' :</p>
+<p class="p1"><span class="Apple-converted-space">                      </span>currentUser.role === 'leader' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40' :</p>
+<p class="p1"><span class="Apple-converted-space">                      </span>'bg-blue-500/20 text-blue-300 border border-blue-500/40'</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>}`}&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                      </span>{currentUser.role === 'admin' ? '老師 / 總召' : currentUser.role === 'leader' ? '組長' : '組員 / 實習生'}</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>&lt;/span&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>&lt;div className="text-[11px] text-indigo-300 font-medium"&gt;{currentUser.title}&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">              </span>&lt;/div&gt;</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">              </span>&lt;div className="hidden sm:block text-right"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                </span>&lt;span className="text-[10px] text-emerald-400 flex items-center justify-end font-mono mb-0.5"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>&lt;span className="w-2 h-2 rounded-full bg-emerald-400 mr-1 animate-pulse"&gt;&lt;/span&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>Firebase 雲端同步中</p>
+<p class="p1"><span class="Apple-converted-space">                </span>&lt;/span&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                </span>&lt;span className="text-xs font-semibold text-slate-200"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>{currentUser.role === 'admin' ? '最高權限' : currentUser.role === 'leader' ? '組長權限' : '組員'}</p>
+<p class="p1"><span class="Apple-converted-space">                </span>&lt;/span&gt;</p>
+<p class="p1"><span class="Apple-converted-space">              </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>&lt;/div&gt;</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">            </span>&lt;div className="bg-slate-800/90 border border-slate-700/80 rounded-2xl p-3 md:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2 shadow-sm"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">              </span>&lt;div className="flex items-center space-x-3"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                </span>&lt;div className="bg-indigo-500/20 text-indigo-400 p-2 rounded-xl flex-shrink-0"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>&lt;i data-lucide="megaphone" className="w-4 h-4 md:w-5 md:h-5"&gt;&lt;/i&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                </span>&lt;div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>&lt;span className="text-[10px] md:text-xs text-indigo-300 font-bold uppercase"&gt;官方公告&lt;/span&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>&lt;p className="text-xs md:text-sm font-medium text-slate-200 leading-snug"&gt;{announcement}&lt;/p&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">              </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">              </span>{currentUser.role === 'admin' &amp;&amp; (</p>
+<p class="p1"><span class="Apple-converted-space">                </span>&lt;button onClick={handleUpdateAnnouncement} className="self-end sm:self-center text-[11px] bg-slate-700 hover:bg-slate-600 px-2.5 py-1 rounded-lg text-slate-300 transition"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>編輯官方公告</p>
+<p class="p1"><span class="Apple-converted-space">                </span>&lt;/button&gt;</p>
+<p class="p1"><span class="Apple-converted-space">              </span>)}</p>
+<p class="p1"><span class="Apple-converted-space">            </span>&lt;/div&gt;</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">            </span>{leaderSuggestions.length &gt; 0 &amp;&amp; (</p>
+<p class="p1"><span class="Apple-converted-space">              </span>&lt;div className="bg-slate-800/80 border border-amber-500/30 rounded-2xl p-4 shadow-md space-y-3"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                </span>&lt;div className="flex items-center justify-between pb-2 border-b border-slate-700"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>&lt;div className="flex items-center space-x-2"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>&lt;div className="bg-amber-500/20 text-amber-400 p-1.5 rounded-lg"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                      </span>&lt;i data-lucide="message-square-quote" className="w-4 h-4"&gt;&lt;/i&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>&lt;div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                      </span>&lt;h3 className="text-xs md:text-sm font-bold text-white"&gt;組長建議與公告牆&lt;/h3&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                      </span>&lt;p className="text-[10px] text-slate-400"&gt;各組長發布的建議與注意事項&lt;/p&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>&lt;/div&gt;</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">                  </span>{(currentUser.role === 'admin' || currentUser.role === 'leader') &amp;&amp; (</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>&lt;button</p>
+<p class="p1"><span class="Apple-converted-space">                      </span>onClick={() =&gt; setIsSuggestionModalOpen(true)}</p>
+<p class="p1"><span class="Apple-converted-space">                      </span>className="bg-amber-600 hover:bg-amber-500 text-white text-xs px-3 py-1.5 rounded-xl font-medium transition flex items-center space-x-1"</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                      </span>&lt;i data-lucide="plus" className="w-3.5 h-3.5"&gt;&lt;/i&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                      </span>&lt;span&gt;發布建議/公告&lt;/span&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>&lt;/button&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>)}</p>
+<p class="p1"><span class="Apple-converted-space">                </span>&lt;/div&gt;</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">                </span>&lt;div className="space-y-2.5"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>{leaderSuggestions.map(sug =&gt; (</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>&lt;div key={sug.id} className="bg-slate-900/70 border border-slate-700/80 rounded-xl p-3 flex items-start justify-between gap-2"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                      </span>&lt;div className="space-y-1"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                        </span>&lt;div className="flex items-center space-x-2"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                          </span>&lt;span className="font-bold text-amber-300 text-xs"&gt;{sug.authorName}&lt;/span&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                          </span>&lt;span className="text-[10px] bg-slate-800 text-slate-400 px-2 py-0.5 rounded"&gt;{sug.authorTitle}&lt;/span&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                          </span>&lt;span className="text-[10px] text-slate-500"&gt;{new Date(sug.timestamp).toLocaleString([], {month: 'numeric', day: 'numeric', hour: '2-digit', minute:'2-digit'})}&lt;/span&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                        </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                        </span>&lt;p className="text-xs text-slate-200 leading-relaxed"&gt;{sug.content}&lt;/p&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                      </span>&lt;/div&gt;</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">                      </span>{(currentUser.role === 'admin' || currentUser.role === 'leader' || currentUser.id === sug.authorId) &amp;&amp; (</p>
+<p class="p1"><span class="Apple-converted-space">                        </span>&lt;button onClick={() =&gt; handleDeleteSuggestion(sug.id)} className="text-slate-500 hover:text-rose-400 p-1 transition" title="刪除"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                          </span>&lt;i data-lucide="trash-2" className="w-4 h-4"&gt;&lt;/i&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                        </span>&lt;/button&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                      </span>)}</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>))}</p>
+<p class="p1"><span class="Apple-converted-space">                </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">              </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>)}</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">            </span>{leaderSuggestions.length === 0 &amp;&amp; (currentUser.role === 'admin' || currentUser.role === 'leader') &amp;&amp; (</p>
+<p class="p1"><span class="Apple-converted-space">              </span>&lt;div className="flex justify-end"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                </span>&lt;button</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>onClick={() =&gt; setIsSuggestionModalOpen(true)}</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>className="bg-slate-800 hover:bg-slate-700 border border-amber-500/40 text-amber-400 text-xs px-3 py-2 rounded-xl transition flex items-center space-x-1.5"</p>
+<p class="p1"><span class="Apple-converted-space">                </span>&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>&lt;i data-lucide="plus-circle" className="w-4 h-4"&gt;&lt;/i&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>&lt;span&gt;+ 發布第一則組長公告/建議&lt;/span&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                </span>&lt;/button&gt;</p>
+<p class="p1"><span class="Apple-converted-space">              </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>)}</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">            </span>{activeTab === 'dashboard' &amp;&amp; (</p>
+<p class="p1"><span class="Apple-converted-space">              </span>&lt;div className="space-y-6"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                </span>&lt;div className="bg-slate-800 border border-slate-700 rounded-2xl p-4 md:p-6 shadow-md"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>&lt;div className="flex items-center justify-between mb-3"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>&lt;h3 className="text-xs md:text-sm font-semibold text-slate-300 flex items-center"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                      </span>&lt;i data-lucide="user-check" className="w-4 h-4 mr-1.5 text-indigo-400"&gt;&lt;/i&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                      </span>【{currentUser.name}】個人近期負責工作</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>&lt;/h3&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>&lt;button onClick={() =&gt; setIsSwapModalOpen(true)} className="bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs px-3 py-1.5 rounded-xl transition flex items-center space-x-1"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                      </span>&lt;i data-lucide="arrow-left-right" className="w-3.5 h-3.5"&gt;&lt;/i&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                      </span>&lt;span&gt;申請請假 / 換班&lt;/span&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>&lt;/button&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>&lt;/div&gt;</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">                  </span>&lt;div className="grid grid-cols-1 sm:grid-cols-2 gap-2"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>{schedules.filter(sch =&gt; isUserInSchedule(sch, currentUser.id)).map(sch =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">                      </span>const myAssignedRoles = DUTY_ROLES.filter(r =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">                        </span>const ids = (sch.assignments &amp;&amp; sch.assignments[r.key]) || [];</p>
+<p class="p1"><span class="Apple-converted-space">                        </span>return ids.includes(currentUser.id);</p>
+<p class="p1"><span class="Apple-converted-space">                      </span>});</p>
+<p class="p1"><span class="Apple-converted-space">                      </span>return (</p>
+<p class="p1"><span class="Apple-converted-space">                        </span>&lt;div key={sch.id} className="bg-slate-900/80 p-3 rounded-xl border border-indigo-500/30 flex items-center justify-between"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                          </span>&lt;div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                            </span>&lt;div className="text-[10px] text-slate-400"&gt;{sch.date}&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                            </span>&lt;div className="text-xs font-bold text-white"&gt;{sch.title}&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                          </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                          </span>&lt;div className="flex flex-wrap gap-1 justify-end"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                            </span>{myAssignedRoles.map(r =&gt; (</p>
+<p class="p1"><span class="Apple-converted-space">                              </span>&lt;span key={r.key} className="bg-indigo-600/30 text-indigo-300 border border-indigo-500/40 text-[11px] font-bold px-2 py-0.5 rounded-lg"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                                </span>{r.label}</p>
+<p class="p1"><span class="Apple-converted-space">                              </span>&lt;/span&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                            </span>))}</p>
+<p class="p1"><span class="Apple-converted-space">                          </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                        </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                      </span>);</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>})}</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>{schedules.filter(sch =&gt; isUserInSchedule(sch, currentUser.id)).length === 0 &amp;&amp; (</p>
+<p class="p1"><span class="Apple-converted-space">                      </span>&lt;div className="text-xs text-slate-500 text-center py-4 sm:col-span-2"&gt;近期班表中暫無指派您的工作&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>)}</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                </span>&lt;/div&gt;</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">                </span>&lt;div className="bg-slate-800 border border-slate-700 rounded-2xl p-4 md:p-6 shadow-md space-y-6"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>&lt;div className="flex items-center justify-between pb-3 border-b border-slate-700"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>&lt;div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                      </span>&lt;h3 className="text-base font-bold text-white flex items-center"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                        </span>&lt;i data-lucide="calendar" className="w-5 h-5 mr-2 text-indigo-400"&gt;&lt;/i&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                        </span>全體月班表</p>
+<p class="p1"><span class="Apple-converted-space">                      </span>&lt;/h3&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>{(currentUser.role === 'admin' || currentUser.role === 'leader') &amp;&amp; (</p>
+<p class="p1"><span class="Apple-converted-space">                      </span>&lt;button onClick={() =&gt; handleOpenScheduleModal(null)} className="bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-xs px-3 py-2 rounded-xl transition flex items-center space-x-1"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                        </span>&lt;i data-lucide="plus-circle" className="w-4 h-4"&gt;&lt;/i&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                        </span>&lt;span&gt;新增班表&lt;/span&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                      </span>&lt;/button&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>)}</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>&lt;/div&gt;</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">                  </span>{latestSchedule &amp;&amp; (</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>&lt;div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                      </span>&lt;div className="flex items-center justify-between mb-2"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                        </span>&lt;span className="text-xs font-bold text-indigo-400 uppercase tracking-wider flex items-center"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                          </span>&lt;i data-lucide="sparkles" className="w-3.5 h-3.5 mr-1 text-amber-400"&gt;&lt;/i&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                          </span>最近一次朝會排班</p>
+<p class="p1"><span class="Apple-converted-space">                        </span>&lt;/span&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                        </span>&lt;span className="text-[11px] text-rose-400 font-bold bg-rose-500/10 px-2 py-0.5 rounded-full border border-rose-500/20"&gt;即將到來&lt;/span&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                      </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                      </span>&lt;div className="bg-slate-900 border-2 border-indigo-500/60 rounded-2xl p-4 shadow-xl relative"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                        </span>&lt;div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 mb-3 border-b border-slate-800 gap-1"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                          </span>&lt;div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                            </span>&lt;div className="flex items-center space-x-2 mb-1"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                              </span>&lt;span className="bg-indigo-600 text-white text-[10px] px-2.5 py-0.5 rounded-full font-mono font-bold"&gt;{latestSchedule.date}&lt;/span&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                              </span>&lt;span className="text-xs text-slate-400"&gt;{latestSchedule.time}&lt;/span&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                            </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                            </span>&lt;h4 className="font-bold text-white text-base"&gt;{latestSchedule.title}&lt;/h4&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                          </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                          </span>{(currentUser.role === 'admin' || currentUser.role === 'leader') &amp;&amp; (</p>
+<p class="p1"><span class="Apple-converted-space">                            </span>&lt;button onClick={() =&gt; handleOpenScheduleModal(latestSchedule)} className="self-end sm:self-auto text-xs bg-slate-800 hover:bg-slate-700 text-indigo-300 border border-slate-700 px-3 py-1.5 rounded-xl font-medium"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                              </span>編輯工作人員</p>
+<p class="p1"><span class="Apple-converted-space">                            </span>&lt;/button&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                          </span>)}</p>
+<p class="p1"><span class="Apple-converted-space">                        </span>&lt;/div&gt;</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">                        </span>&lt;div className="grid grid-cols-1 sm:grid-cols-5 gap-2.5"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                          </span>{DUTY_ROLES.map(role =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">                            </span>const assignedIds = (latestSchedule.assignments &amp;&amp; latestSchedule.assignments[role.key]) || [];</p>
+<p class="p1"><span class="Apple-converted-space">                            </span>const assignedMembers = members.filter(m =&gt; assignedIds.includes(m.id));</p>
+<p class="p1"><span class="Apple-converted-space">                            </span>const isMeInRole = assignedIds.includes(currentUser.id);</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">                            </span>return (</p>
+<p class="p1"><span class="Apple-converted-space">                              </span>&lt;div key={role.key} className={`p-2.5 rounded-xl border ${isMeInRole ? 'bg-indigo-950/80 border-indigo-500 shadow-md' : 'bg-slate-800/80 border-slate-700/80'}`}&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                                </span>&lt;div className="text-[11px] text-slate-400 font-medium mb-1.5 flex items-center justify-between border-b border-slate-700/60 pb-1"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                                  </span>&lt;span&gt;{role.label}&lt;/span&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                                  </span>&lt;span className="text-[10px] text-slate-500"&gt;{assignedMembers.length} 人&lt;/span&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                                </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                                </span>&lt;div className="flex flex-wrap gap-1"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                                  </span>{assignedMembers.map(m =&gt; (</p>
+<p class="p1"><span class="Apple-converted-space">                                    </span>&lt;span key={m.id} className={`text-xs font-semibold px-2 py-0.5 rounded-md ${m.id === currentUser.id ? 'bg-indigo-600 text-white' : 'bg-slate-700/90 text-slate-200'}`}&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                                      </span>{m.name}</p>
+<p class="p1"><span class="Apple-converted-space">                                    </span>&lt;/span&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                                  </span>))}</p>
+<p class="p1"><span class="Apple-converted-space">                                  </span>{assignedMembers.length === 0 &amp;&amp; &lt;span className="text-xs text-slate-500 italic"&gt;未指派&lt;/span&gt;}</p>
+<p class="p1"><span class="Apple-converted-space">                                </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                              </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                            </span>);</p>
+<p class="p1"><span class="Apple-converted-space">                          </span>})}</p>
+<p class="p1"><span class="Apple-converted-space">                        </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                      </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>)}</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">                  </span>{upcomingSchedules.length &gt; 0 &amp;&amp; (</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>&lt;div className="pt-2"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                      </span>&lt;div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3"&gt;即將到來的直播 ({upcomingSchedules.length})&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                      </span>&lt;div className="space-y-3"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                        </span>{upcomingSchedules.map((sch) =&gt; (</p>
+<p class="p1"><span class="Apple-converted-space">                          </span>&lt;div key={sch.id} className="bg-slate-900/60 border border-slate-700/80 rounded-xl p-3 md:p-4"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                            </span>&lt;div className="flex flex-col sm:flex-row sm:items-center justify-between pb-2 mb-2 border-b border-slate-800 gap-1"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                              </span>&lt;div className="flex items-center space-x-2"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                                </span>&lt;span className="bg-slate-800 text-slate-300 text-[10px] px-2 py-0.5 rounded font-mono font-bold border border-slate-700"&gt;{sch.date}&lt;/span&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                                </span>&lt;span className="text-xs text-slate-400"&gt;{sch.time}&lt;/span&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                                </span>&lt;h4 className="font-bold text-white text-xs md:text-sm"&gt;{sch.title}&lt;/h4&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                              </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                              </span>{(currentUser.role === 'admin' || currentUser.role === 'leader') &amp;&amp; (</p>
+<p class="p1"><span class="Apple-converted-space">                                </span>&lt;button onClick={() =&gt; handleOpenScheduleModal(sch)} className="self-end sm:self-auto text-[11px] text-indigo-400 hover:underline"&gt;編輯人員&lt;/button&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                              </span>)}</p>
+<p class="p1"><span class="Apple-converted-space">                            </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                            </span>&lt;div className="grid grid-cols-1 sm:grid-cols-5 gap-2"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                              </span>{DUTY_ROLES.map(role =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">                                </span>const assignedIds = (sch.assignments &amp;&amp; sch.assignments[role.key]) || [];</p>
+<p class="p1"><span class="Apple-converted-space">                                </span>const assignedMembers = members.filter(m =&gt; assignedIds.includes(m.id));</p>
+<p class="p1"><span class="Apple-converted-space">                                </span>return (</p>
+<p class="p1"><span class="Apple-converted-space">                                  </span>&lt;div key={role.key} className="p-2 rounded-lg bg-slate-800/50 border border-slate-700/50"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                                    </span>&lt;div className="text-[10px] text-slate-400 mb-1"&gt;{role.label}&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                                    </span>&lt;div className="flex flex-wrap gap-1"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                                      </span>{assignedMembers.map(m =&gt; (</p>
+<p class="p1"><span class="Apple-converted-space">                                        </span>&lt;span key={m.id} className="text-[11px] bg-slate-700 text-slate-200 px-1.5 py-0.5 rounded font-medium"&gt;{m.name}&lt;/span&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                                      </span>))}</p>
+<p class="p1"><span class="Apple-converted-space">                                      </span>{assignedMembers.length === 0 &amp;&amp; &lt;span className="text-[11px] text-slate-500 italic"&gt;無人&lt;/span&gt;}</p>
+<p class="p1"><span class="Apple-converted-space">                                    </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                                  </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                                </span>);</p>
+<p class="p1"><span class="Apple-converted-space">                              </span>})}</p>
+<p class="p1"><span class="Apple-converted-space">                            </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                          </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                        </span>))}</p>
+<p class="p1"><span class="Apple-converted-space">                      </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>)}</p>
+<p class="p1"><span class="Apple-converted-space">                </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">              </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>)}</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">            </span>{activeTab === 'sop' &amp;&amp; (</p>
+<p class="p1"><span class="Apple-converted-space">              </span>&lt;div className="space-y-4"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                </span>&lt;div className="flex items-center justify-between"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>&lt;h2 className="text-lg font-bold text-white"&gt;崗位操作說明與注意事項&lt;/h2&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>{(currentUser.role === 'admin' || currentUser.role === 'leader') &amp;&amp; (</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>&lt;span className="text-xs text-amber-400"&gt;✨ 您擁有組長編輯權限&lt;/span&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>)}</p>
+<p class="p1"><span class="Apple-converted-space">                </span>&lt;/div&gt;</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">                </span>&lt;div className="grid grid-cols-1 md:grid-cols-2 gap-4"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>{DUTY_ROLES.map(role =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>const sopObj = sopData[role.key] || { title: role.label + ' SOP', items: [] };</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>const isEditing = editingSopKey === role.key;</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">                    </span>return (</p>
+<p class="p1"><span class="Apple-converted-space">                      </span>&lt;div key={role.key} className="bg-slate-800 border border-slate-700 rounded-2xl p-4 shadow-md flex flex-col justify-between"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                        </span>&lt;div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                          </span>&lt;div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-700"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                            </span>&lt;div className="flex items-center space-x-2.5"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                              </span>&lt;i data-lucide={role.icon} className="w-4 h-4 text-indigo-400"&gt;&lt;/i&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                              </span>&lt;h3 className="font-bold text-white text-sm"&gt;{sopObj.title}&lt;/h3&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                            </span>&lt;/div&gt;</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">                            </span>{(currentUser.role === 'admin' || currentUser.role === 'leader') &amp;&amp; !isEditing &amp;&amp; (</p>
+<p class="p1"><span class="Apple-converted-space">                              </span>&lt;button</p>
+<p class="p1"><span class="Apple-converted-space">                                </span>onClick={() =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">                                  </span>setEditingSopKey(role.key);</p>
+<p class="p1"><span class="Apple-converted-space">                                  </span>setEditingSopContent(sopObj.items.join('\n'));</p>
+<p class="p1"><span class="Apple-converted-space">                                </span>}}</p>
+<p class="p1"><span class="Apple-converted-space">                                </span>className="text-xs bg-slate-700 hover:bg-slate-600 text-slate-300 px-2.5 py-1 rounded-lg transition"</p>
+<p class="p1"><span class="Apple-converted-space">                              </span>&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                                </span>編輯操作說明與注意事項</p>
+<p class="p1"><span class="Apple-converted-space">                              </span>&lt;/button&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                            </span>)}</p>
+<p class="p1"><span class="Apple-converted-space">                          </span>&lt;/div&gt;</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">                          </span>{isEditing ? (</p>
+<p class="p1"><span class="Apple-converted-space">                            </span>&lt;div className="space-y-2"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                              </span>&lt;textarea</p>
+<p class="p1"><span class="Apple-converted-space">                                </span>value={editingSopContent}</p>
+<p class="p1"><span class="Apple-converted-space">                                </span>onChange={(e) =&gt; setEditingSopContent(e.target.value)}</p>
+<p class="p1"><span class="Apple-converted-space">                                </span>rows="6"</p>
+<p class="p1"><span class="Apple-converted-space">                                </span>className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2 text-xs text-slate-200 font-mono focus:outline-none focus:border-indigo-500"</p>
+<p class="p1"><span class="Apple-converted-space">                                </span>placeholder="每行輸入一項步驟..."</p>
+<p class="p1"><span class="Apple-converted-space">                              </span>&gt;&lt;/textarea&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                              </span>&lt;div className="flex justify-end space-x-2"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                                </span>&lt;button onClick={() =&gt; setEditingSopKey(null)} className="px-3 py-1 bg-slate-700 text-xs rounded-lg"&gt;取消&lt;/button&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                                </span>&lt;button onClick={() =&gt; handleSaveSop(role.key)} className="px-3 py-1 bg-indigo-600 text-xs rounded-lg font-bold"&gt;儲存&lt;/button&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                              </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                            </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                          </span>) : (</p>
+<p class="p1"><span class="Apple-converted-space">                            </span>&lt;ul className="space-y-2"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                              </span>{sopObj.items.map((item, idx) =&gt; (</p>
+<p class="p1"><span class="Apple-converted-space">                                </span>&lt;li key={idx} className="flex items-start space-x-2 text-xs text-slate-300"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                                  </span>&lt;input type="checkbox" className="mt-0.5 rounded border-slate-600 bg-slate-900" /&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                                  </span>&lt;span className="leading-tight"&gt;{item}&lt;/span&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                                </span>&lt;/li&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                              </span>))}</p>
+<p class="p1"><span class="Apple-converted-space">                            </span>&lt;/ul&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                          </span>)}</p>
+<p class="p1"><span class="Apple-converted-space">                        </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                      </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>);</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>})}</p>
+<p class="p1"><span class="Apple-converted-space">                </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">              </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>)}</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">            </span>{activeTab === 'repairs' &amp;&amp; (</p>
+<p class="p1"><span class="Apple-converted-space">              </span>&lt;div className="space-y-4"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                </span>&lt;div className="flex items-center justify-between"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>&lt;h2 className="text-lg font-bold text-white"&gt;設備故障紀錄&lt;/h2&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>&lt;button onClick={() =&gt; setIsRepairModalOpen(true)} className="bg-rose-600 text-white text-xs px-3 py-2 rounded-xl font-medium"&gt;+ 回報報修&lt;/button&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                </span>&lt;div className="space-y-3"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>{repairs.map(rep =&gt; (</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>&lt;div key={rep.id} className="bg-slate-800 border border-slate-700 rounded-2xl p-4 shadow-md"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                      </span>&lt;div className="flex items-center justify-between mb-2"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                        </span>&lt;span className="font-bold text-white text-sm"&gt;{rep.item}&lt;/span&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                        </span>&lt;span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${rep.status === 'resolved' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'}`}&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                          </span>{rep.status === 'resolved' ? '已排除' : '待處理'}</p>
+<p class="p1"><span class="Apple-converted-space">                        </span>&lt;/span&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                      </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                      </span>&lt;p className="text-xs text-slate-300 mb-2"&gt;{rep.issue}&lt;/p&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                      </span>&lt;div className="flex items-center justify-between text-[10px] text-slate-400 border-t border-slate-700/60 pt-2"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                        </span>&lt;span&gt;回報人：{rep.reporter} ({rep.date})&lt;/span&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                        </span>{(currentUser.role === 'admin' || currentUser.role === 'leader') &amp;&amp; (</p>
+<p class="p1"><span class="Apple-converted-space">                          </span>&lt;button onClick={async () =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">                            </span>const updated = { ...rep, status: rep.status === 'pending' ? 'resolved' : 'pending' };</p>
+<p class="p1"><span class="Apple-converted-space">                            </span>if (db) {</p>
+<p class="p1"><span class="Apple-converted-space">                              </span>const { doc, setDoc } = window.FirebaseSDK;</p>
+<p class="p1"><span class="Apple-converted-space">                              </span>await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'repairs', rep.id), updated);</p>
+<p class="p1"><span class="Apple-converted-space">                              </span>showToast('報修狀態已更新！');</p>
+<p class="p1"><span class="Apple-converted-space">                            </span>}</p>
+<p class="p1"><span class="Apple-converted-space">                          </span>}} className="text-indigo-400 font-bold"&gt;切換狀態&lt;/button&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                        </span>)}</p>
+<p class="p1"><span class="Apple-converted-space">                      </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>))}</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>{repairs.length === 0 &amp;&amp; &lt;div className="text-xs text-slate-500 text-center py-6"&gt;目前無設備報修紀錄&lt;/div&gt;}</p>
+<p class="p1"><span class="Apple-converted-space">                </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">              </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>)}</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">            </span>{activeTab === 'swaps' &amp;&amp; (</p>
+<p class="p1"><span class="Apple-converted-space">              </span>&lt;div className="space-y-6"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                </span>&lt;div className="flex items-center justify-between"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>&lt;div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>&lt;h2 className="text-lg font-bold text-white"&gt;請假與換班審核中心&lt;/h2&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>&lt;p className="text-xs text-slate-400"&gt;審核並查看歷史紀錄&lt;/p&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>&lt;button onClick={() =&gt; setIsSwapModalOpen(true)} className="bg-indigo-600 text-white text-xs px-3 py-2 rounded-xl font-medium"&gt;+ 提出申請&lt;/button&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                </span>&lt;/div&gt;</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">                </span>&lt;div className="space-y-3"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>&lt;h3 className="text-xs font-bold text-amber-400 uppercase tracking-wider"&gt;⏳ 等待總召審核 ({swaps.filter(s =&gt; s.status === 'pending').length})&lt;/h3&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>{swaps.filter(s =&gt; s.status === 'pending').map(sw =&gt; (</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>&lt;div key={sw.id} className="bg-slate-800 border border-amber-500/40 rounded-2xl p-4 shadow-md space-y-2"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                      </span>&lt;div className="flex items-center justify-between"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                        </span>&lt;span className="font-bold text-white text-xs"&gt;{sw.requester} 提出的換班/請假&lt;/span&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                        </span>&lt;span className="text-[10px] bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded-full font-bold"&gt;審核中&lt;/span&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                      </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                      </span>&lt;div className="text-xs text-slate-300 space-y-0.5"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                        </span>&lt;div&gt;目標日期：{sw.targetDate} ({sw.roleLabel})&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                        </span>&lt;div&gt;請假事由：{sw.reason}&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                      </span>&lt;/div&gt;</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">                      </span>{currentUser.role === 'admin' ? (</p>
+<p class="p1"><span class="Apple-converted-space">                        </span>&lt;div className="flex space-x-2 pt-2 border-t border-slate-700"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                          </span>&lt;button onClick={() =&gt; handleUpdateSwapStatus(sw.id, 'approved')} className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white text-xs py-1.5 rounded-lg font-bold transition"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                            </span>✓ 同意核准</p>
+<p class="p1"><span class="Apple-converted-space">                          </span>&lt;/button&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                          </span>&lt;button onClick={() =&gt; handleUpdateSwapStatus(sw.id, 'rejected')} className="flex-1 bg-rose-600 hover:bg-rose-500 text-white text-xs py-1.5 rounded-lg font-bold transition"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                            </span>✕ 駁回申請</p>
+<p class="p1"><span class="Apple-converted-space">                          </span>&lt;/button&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                        </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                      </span>) : (</p>
+<p class="p1"><span class="Apple-converted-space">                        </span>&lt;div className="text-[10px] text-slate-400 pt-1 border-t border-slate-700"&gt;等待總召確認中...&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                      </span>)}</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>))}</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>{swaps.filter(s =&gt; s.status === 'pending').length === 0 &amp;&amp; (</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>&lt;div className="text-xs text-slate-500 text-center py-3 bg-slate-800/40 rounded-xl border border-slate-700/60"&gt;目前沒有等待審核的申請&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>)}</p>
+<p class="p1"><span class="Apple-converted-space">                </span>&lt;/div&gt;</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">                </span>&lt;div className="space-y-3 pt-4 border-t border-slate-700"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>&lt;h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider"&gt;📋 歷史審核紀錄&lt;/h3&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>&lt;div className="space-y-2"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>{swaps.filter(s =&gt; s.status !== 'pending').map(sw =&gt; (</p>
+<p class="p1"><span class="Apple-converted-space">                      </span>&lt;div key={sw.id} className="bg-slate-900/60 border border-slate-700/70 rounded-xl p-3.5 flex items-center justify-between"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                        </span>&lt;div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                          </span>&lt;div className="flex items-center space-x-2 mb-1"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                            </span>&lt;span className="font-bold text-white text-xs"&gt;{sw.requester}&lt;/span&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                            </span>&lt;span className="text-[10px] text-slate-400"&gt;({sw.targetDate} - {sw.roleLabel})&lt;/span&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                          </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                          </span>&lt;div className="text-[11px] text-slate-300"&gt;事由：{sw.reason}&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                        </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                        </span>&lt;div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                          </span>&lt;span className={`text-[10px] px-2.5 py-1 rounded-full font-bold ${</p>
+<p class="p1"><span class="Apple-converted-space">                            </span>sw.status === 'approved' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-rose-500/20 text-rose-400 border border-rose-500/30'</p>
+<p class="p1"><span class="Apple-converted-space">                          </span>}`}&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                            </span>{sw.status === 'approved' ? '✓ 已核准' : '✕ 已駁回'}</p>
+<p class="p1"><span class="Apple-converted-space">                          </span>&lt;/span&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                        </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                      </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>))}</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>{swaps.filter(s =&gt; s.status !== 'pending').length === 0 &amp;&amp; (</p>
+<p class="p1"><span class="Apple-converted-space">                      </span>&lt;div className="text-xs text-slate-500 text-center py-4 bg-slate-800/40 rounded-xl border border-slate-700/60"&gt;尚無歷史審核紀錄&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>)}</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                </span>&lt;/div&gt;</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">              </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>)}</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">            </span>{activeTab === 'admin' &amp;&amp; currentUser.role === 'admin' &amp;&amp; (</p>
+<p class="p1"><span class="Apple-converted-space">              </span>&lt;div className="space-y-4"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                </span>&lt;div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>&lt;div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>&lt;h2 className="text-lg font-bold text-white"&gt;成員與權限發放 (總召專區)&lt;/h2&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>&lt;button onClick={() =&gt; { setEditingMemberData(null); setAvatarBase64(''); setIsPersonalSettings(false); setIsMemberModalOpen(true); }} className="bg-indigo-600 text-white text-xs px-3 py-2 rounded-xl font-medium flex items-center justify-center space-x-1"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>&lt;i data-lucide="user-plus" className="w-4 h-4"&gt;&lt;/i&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>&lt;span&gt;+ 新增成員&lt;/span&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>&lt;/button&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                </span>&lt;/div&gt;</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">                </span>&lt;div className="relative"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>&lt;span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>&lt;i data-lucide="search" className="w-4 h-4"&gt;&lt;/i&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>&lt;/span&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>&lt;input</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>type="text"</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>value={memberSearchQuery}</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>onChange={(e) =&gt; setMemberSearchQuery(e.target.value)}</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>placeholder="輸入成員姓名或職稱快速搜尋..."</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>className="w-full bg-slate-800 border border-slate-700 rounded-xl pl-9 pr-4 py-2.5 text-xs text-white focus:outline-none focus:border-indigo-500"</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>/&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                </span>&lt;/div&gt;</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">                </span>&lt;div className="bg-slate-800 border border-slate-700 rounded-2xl p-4 space-y-3"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>{sortedMembers</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>.filter(m =&gt; m.name.toLowerCase().includes(memberSearchQuery.toLowerCase()) || m.title.toLowerCase().includes(memberSearchQuery.toLowerCase()))</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>.map(m =&gt; (</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>&lt;div key={m.id} className="flex items-center justify-between py-3 border-b border-slate-700/60 last:border-none gap-2"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                      </span>&lt;div className="flex items-center space-x-3 overflow-hidden"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                        </span>{m.avatar ? (</p>
+<p class="p1"><span class="Apple-converted-space">                          </span>&lt;img src={m.avatar} alt="Avatar" className="w-10 h-10 rounded-full object-cover border border-slate-600 flex-shrink-0" /&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                        </span>) : (</p>
+<p class="p1"><span class="Apple-converted-space">                          </span>&lt;div className="w-10 h-10 rounded-full bg-slate-700 border border-slate-600 flex items-center justify-center text-slate-300 font-bold text-sm flex-shrink-0"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                            </span>{m.name.charAt(0)}</p>
+<p class="p1"><span class="Apple-converted-space">                          </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                        </span>)}</p>
+<p class="p1"><span class="Apple-converted-space">                        </span>&lt;div className="overflow-hidden"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                          </span>&lt;div className="font-bold text-white text-xs flex items-center space-x-2"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                            </span>&lt;span&gt;{m.name}&lt;/span&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                            </span>&lt;span className={`text-[9px] px-2 py-0.5 rounded-full font-bold ${</p>
+<p class="p1"><span class="Apple-converted-space">                              </span>m.role === 'admin' ? 'bg-emerald-500/20 text-emerald-300' :</p>
+<p class="p1"><span class="Apple-converted-space">                              </span>m.role === 'leader' ? 'bg-amber-500/20 text-amber-300' :</p>
+<p class="p1"><span class="Apple-converted-space">                              </span>'bg-blue-500/20 text-blue-300'</p>
+<p class="p1"><span class="Apple-converted-space">                            </span>}`}&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                              </span>{m.role === 'admin' ? '老師/總召' : m.role === 'leader' ? '組長' : '組員/實習生'}</p>
+<p class="p1"><span class="Apple-converted-space">                            </span>&lt;/span&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                          </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                          </span>&lt;div className="text-[11px] text-slate-400 truncate"&gt;{m.title}（密碼：&lt;code className="text-amber-300 font-mono"&gt;{m.password}&lt;/code&gt;）&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                        </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                      </span>&lt;/div&gt;</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">                      </span>&lt;div className="flex items-center space-x-2 flex-shrink-0"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                        </span>&lt;select</p>
+<p class="p1"><span class="Apple-converted-space">                          </span>value={m.role}</p>
+<p class="p1"><span class="Apple-converted-space">                          </span>onChange={async (e) =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">                            </span>const newRole = e.target.value;</p>
+<p class="p1"><span class="Apple-converted-space">                            </span>const updated = { ...m, role: newRole };</p>
+<p class="p1"><span class="Apple-converted-space">                            </span>if (db) {</p>
+<p class="p1"><span class="Apple-converted-space">                              </span>const { doc, setDoc } = window.FirebaseSDK;</p>
+<p class="p1"><span class="Apple-converted-space">                              </span>await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'members', m.id), updated);</p>
+<p class="p1"><span class="Apple-converted-space">                              </span>showToast(`已更新 ${m.name} 權限`);</p>
+<p class="p1"><span class="Apple-converted-space">                            </span>}</p>
+<p class="p1"><span class="Apple-converted-space">                          </span>}}</p>
+<p class="p1"><span class="Apple-converted-space">                          </span>className="bg-slate-900 border border-slate-700 text-xs text-white rounded p-1.5 focus:outline-none"</p>
+<p class="p1"><span class="Apple-converted-space">                        </span>&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                          </span>&lt;option value="member"&gt;組員/實習生&lt;/option&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                          </span>&lt;option value="leader"&gt;組長&lt;/option&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                          </span>&lt;option value="admin"&gt;老師/總召&lt;/option&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                        </span>&lt;/select&gt;</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">                        </span>&lt;button onClick={() =&gt; { setEditingMemberData(m); setIsPersonalSettings(false); setAvatarBase64(''); setIsMemberModalOpen(true); }} className="bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs px-2.5 py-1.5 rounded-lg"&gt;編輯&lt;/button&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                        </span>{m.id !== currentUser.id &amp;&amp; (</p>
+<p class="p1"><span class="Apple-converted-space">                          </span>&lt;button onClick={() =&gt; handleDeleteMember(m.id, m.name)} className="bg-rose-900/40 hover:bg-rose-900 text-rose-300 text-xs px-2.5 py-1.5 rounded-lg border border-rose-500/30"&gt;刪除&lt;/button&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                        </span>)}</p>
+<p class="p1"><span class="Apple-converted-space">                      </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>))}</p>
+<p class="p1"><span class="Apple-converted-space">                </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">              </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>)}</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;/main&gt;</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">          </span>{isSuggestionModalOpen &amp;&amp; (</p>
+<p class="p1"><span class="Apple-converted-space">            </span>&lt;div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">              </span>&lt;div className="bg-slate-800 border border-slate-700 rounded-2xl w-full max-w-md p-5 shadow-2xl space-y-3"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                </span>&lt;div className="flex items-center justify-between border-b border-slate-700 pb-2"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>&lt;h3 className="font-bold text-white text-sm"&gt;發布組長公告與建議&lt;/h3&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>&lt;button onClick={() =&gt; setIsSuggestionModalOpen(false)} className="text-slate-400"&gt;&lt;i data-lucide="x" className="w-5 h-5"&gt;&lt;/i&gt;&lt;/button&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                </span>&lt;form onSubmit={handlePostSuggestion} className="space-y-3 text-xs"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>&lt;div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>&lt;label className="block text-slate-400 mb-1"&gt;公告內容 / 建議回報&lt;/label&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>&lt;textarea name="content" rows="4" required placeholder="請輸入要交辦的事項或建議..." className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-white focus:outline-none focus:border-indigo-500"&gt;&lt;/textarea&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>&lt;div className="flex justify-end space-x-2 pt-2 border-t border-slate-700"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>&lt;button type="button" onClick={() =&gt; setIsSuggestionModalOpen(false)} className="px-3 py-1.5 bg-slate-700 text-slate-300 rounded-xl"&gt;取消&lt;/button&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>&lt;button type="submit" className="px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-white rounded-xl font-bold"&gt;確認發布&lt;/button&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                </span>&lt;/form&gt;</p>
+<p class="p1"><span class="Apple-converted-space">              </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>)}</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">          </span>{isEditingSchedule &amp;&amp; editingScheduleData &amp;&amp; (</p>
+<p class="p1"><span class="Apple-converted-space">            </span>&lt;div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">              </span>&lt;div className="bg-slate-800 border border-slate-700 rounded-2xl w-full max-w-lg p-5 shadow-2xl space-y-4 max-h-[90vh] flex flex-col"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                </span>&lt;div className="flex items-center justify-between border-b border-slate-700 pb-3 flex-shrink-0"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>&lt;h3 className="font-bold text-white text-base"&gt;編輯工作人員排班 (分組/跨組調度)&lt;/h3&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>&lt;button onClick={() =&gt; setIsEditingSchedule(false)} className="text-slate-400 hover:text-white"&gt;&lt;i data-lucide="x" className="w-5 h-5"&gt;&lt;/i&gt;&lt;/button&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                </span>&lt;form onSubmit={handleSaveScheduleSubmit} className="space-y-4 text-xs overflow-y-auto pr-1 custom-scrollbar"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>&lt;div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>&lt;label className="block text-slate-400 mb-1"&gt;朝會 / 活動名稱&lt;/label&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>&lt;input value={editingScheduleData.title || ''} onChange={(e) =&gt; setEditingScheduleData({...editingScheduleData, title: e.target.value})} required className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white" /&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>&lt;div className="grid grid-cols-2 gap-2"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>&lt;div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                      </span>&lt;label className="block text-slate-400 mb-1"&gt;日期&lt;/label&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                      </span>&lt;input type="date" value={editingScheduleData.date || ''} onChange={(e) =&gt; setEditingScheduleData({...editingScheduleData, date: e.target.value})} required className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white" /&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>&lt;div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                      </span>&lt;label className="block text-slate-400 mb-1"&gt;時間&lt;/label&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                      </span>&lt;input value={editingScheduleData.time || ''} onChange={(e) =&gt; setEditingScheduleData({...editingScheduleData, time: e.target.value})} required className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white" /&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>&lt;/div&gt;</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">                  </span>&lt;div className="space-y-4 border-t border-slate-700 pt-3"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>&lt;span className="font-bold text-indigo-400 block text-xs"&gt;指派崗位人員（可複選）：&lt;/span&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>{DUTY_ROLES.map(role =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">                      </span>const assignments = editingScheduleData.assignments || {};</p>
+<p class="p1"><span class="Apple-converted-space">                      </span>const assignedIds = Array.isArray(assignments[role.key]) ? assignments[role.key] : [];</p>
+<p class="p1"><span class="Apple-converted-space">                      </span>const isShowAll = !!showAllForRole[role.key];</p>
+<p class="p2"><span class="Apple-converted-space">                      </span></p>
+<p class="p1"><span class="Apple-converted-space">                      </span>const deptMembers = members.filter(m =&gt; m.dept === role.deptKey || m.dept === 'admin');</p>
+<p class="p2"><span class="Apple-converted-space">                      </span></p>
+<p class="p1"><span class="Apple-converted-space">                      </span>const roleOrderMap = { admin: 1, director: 2, audio: 3, cam1: 4, cam2: 5, slides: 6, intern: 7, member: 8 };</p>
+<p class="p1"><span class="Apple-converted-space">                      </span>const fullListSorted = [...members].sort((a, b) =&gt; (roleOrderMap[a.dept] || 99) - (roleOrderMap[b.dept] || 99));</p>
+<p class="p1"><span class="Apple-converted-space">                      </span>const renderList = isShowAll ? fullListSorted : deptMembers;</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">                      </span>return (</p>
+<p class="p1"><span class="Apple-converted-space">                        </span>&lt;div key={role.key} className="bg-slate-900/80 p-3 rounded-xl border border-slate-700 space-y-2"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                          </span>&lt;div className="flex items-center justify-between text-xs font-bold text-slate-200"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                            </span>&lt;span className="flex items-center"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                              </span>&lt;span&gt;{role.label}&lt;/span&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                              </span>&lt;span className="ml-2 text-[10px] bg-slate-800 text-slate-400 px-2 py-0.5 rounded font-normal"&gt;已選 {assignedIds.length} 人&lt;/span&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                            </span>&lt;/span&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                            </span>&lt;button type="button" onClick={() =&gt; setShowAllForRole({ ...showAllForRole, [role.key]: !isShowAll })} className="text-[11px] text-indigo-400 underline"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                              </span>{isShowAll ? '僅顯示本組成員' : '+ 跨組支援 (依組別分層)'}</p>
+<p class="p1"><span class="Apple-converted-space">                            </span>&lt;/button&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                          </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                          </span>&lt;div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 pt-1"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                            </span>{renderList.map(m =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">                              </span>const isChecked = assignedIds.includes(m.id);</p>
+<p class="p1"><span class="Apple-converted-space">                              </span>return (</p>
+<p class="p1"><span class="Apple-converted-space">                                </span>&lt;button type="button" key={m.id} onClick={() =&gt; handleToggleMemberAssignment(role.key, m.id)} className={`p-2 rounded-lg text-xs flex items-center justify-between border transition-all ${isChecked ? 'bg-indigo-600 text-white font-bold border-indigo-400' : 'bg-slate-800 text-slate-300 border-slate-700'}`}&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                                  </span>&lt;div className="truncate text-left"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                                    </span>&lt;div className="truncate"&gt;{m.name}&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                                    </span>&lt;div className={`text-[9px] ${isChecked ? 'text-indigo-200' : 'text-slate-400'}`}&gt;{m.title}&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                                  </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                                  </span>&lt;span className={`text-[10px] ml-1 px-1 rounded ${isChecked ? 'bg-indigo-700 text-white' : 'text-slate-500'}`}&gt;{isChecked ? '✓' : '+'}&lt;/span&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                                </span>&lt;/button&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                              </span>);</p>
+<p class="p1"><span class="Apple-converted-space">                            </span>})}</p>
+<p class="p1"><span class="Apple-converted-space">                          </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                        </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                      </span>);</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>})}</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>&lt;/div&gt;</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">                  </span>&lt;div className="flex justify-end space-x-2 pt-3 border-t border-slate-700 flex-shrink-0"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>&lt;button type="button" onClick={() =&gt; setIsEditingSchedule(false)} className="px-4 py-2 bg-slate-700 text-slate-300 rounded-xl"&gt;取消&lt;/button&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>&lt;button type="submit" className="px-4 py-2 bg-indigo-600 text-white rounded-xl font-bold"&gt;儲存並即時同步&lt;/button&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                </span>&lt;/form&gt;</p>
+<p class="p1"><span class="Apple-converted-space">              </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>)}</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">          </span>{isSwapModalOpen &amp;&amp; (</p>
+<p class="p1"><span class="Apple-converted-space">            </span>&lt;div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">              </span>&lt;div className="bg-slate-800 border border-slate-700 rounded-2xl w-full max-w-sm p-5 shadow-2xl space-y-3"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                </span>&lt;div className="flex items-center justify-between border-b border-slate-700 pb-2"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>&lt;h3 className="font-bold text-white text-sm"&gt;請假 / 換班申請&lt;/h3&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>&lt;button onClick={() =&gt; setIsSwapModalOpen(false)} className="text-slate-400"&gt;&lt;i data-lucide="x" className="w-5 h-5"&gt;&lt;/i&gt;&lt;/button&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                </span>&lt;form onSubmit={handleRequestSwap} className="space-y-3 text-xs"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>&lt;div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>&lt;label className="block text-slate-400 mb-1"&gt;目標日期 (請選擇您被排程的班)&lt;/label&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>&lt;select name="targetDate" required className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                      </span>{userScheduledDates.length &gt; 0 ? (</p>
+<p class="p1"><span class="Apple-converted-space">                        </span>userScheduledDates.map((item, idx) =&gt; (</p>
+<p class="p1"><span class="Apple-converted-space">                          </span>&lt;option key={idx} value={item.date}&gt;{item.date} - {item.title}&lt;/option&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                        </span>))</p>
+<p class="p1"><span class="Apple-converted-space">                      </span>) : (</p>
+<p class="p1"><span class="Apple-converted-space">                        </span>&lt;option value="" disabled&gt;目前您近期無排程班表&lt;/option&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                      </span>)}</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>&lt;/select&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>&lt;div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>&lt;label className="block text-slate-400 mb-1"&gt;工作崗位&lt;/label&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>&lt;select name="roleLabel" className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2 text-white"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                      </span>{DUTY_ROLES.map(r =&gt; &lt;option key={r.key} value={r.label}&gt;{r.label}&lt;/option&gt;)}</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>&lt;/select&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>&lt;div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>&lt;label className="block text-slate-400 mb-1"&gt;請假理由&lt;/label&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>&lt;textarea name="reason" rows="2" required placeholder="說明事由..." className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2 text-white"&gt;&lt;/textarea&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>&lt;div className="flex justify-end space-x-2 pt-2 border-t border-slate-700"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>&lt;button type="button" onClick={() =&gt; setIsSwapModalOpen(false)} className="px-3 py-1.5 bg-slate-700 text-slate-300 rounded-xl"&gt;取消&lt;/button&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>&lt;button type="submit" className="px-3 py-1.5 bg-indigo-600 text-white rounded-xl"&gt;送出申請&lt;/button&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                </span>&lt;/form&gt;</p>
+<p class="p1"><span class="Apple-converted-space">              </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>)}</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">          </span>{isRepairModalOpen &amp;&amp; (</p>
+<p class="p1"><span class="Apple-converted-space">            </span>&lt;div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">              </span>&lt;div className="bg-slate-800 border border-slate-700 rounded-2xl w-full max-w-sm p-5 shadow-2xl space-y-3"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                </span>&lt;div className="flex items-center justify-between border-b border-slate-700 pb-2"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>&lt;h3 className="font-bold text-white text-sm"&gt;設備報修&lt;/h3&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>&lt;button onClick={() =&gt; setIsRepairModalOpen(false)} className="text-slate-400"&gt;&lt;i data-lucide="x" className="w-5 h-5"&gt;&lt;/i&gt;&lt;/button&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                </span>&lt;form onSubmit={handleReportRepair} className="space-y-3 text-xs"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>&lt;div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>&lt;label className="block text-slate-400 mb-1"&gt;設備名稱&lt;/label&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>&lt;input name="item" required placeholder="例：Cam1 腳架" className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2 text-white" /&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>&lt;div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>&lt;label className="block text-slate-400 mb-1"&gt;狀況描述&lt;/label&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>&lt;textarea name="issue" rows="2" required placeholder="說明問題..." className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2 text-white"&gt;&lt;/textarea&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>&lt;div className="flex justify-end space-x-2 pt-2 border-t border-slate-700"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>&lt;button type="button" onClick={() =&gt; setIsRepairModalOpen(false)} className="px-3 py-1.5 bg-slate-700 text-slate-300 rounded-xl"&gt;取消&lt;/button&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>&lt;button type="submit" className="px-3 py-1.5 bg-rose-600 text-white rounded-xl"&gt;提交&lt;/button&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                </span>&lt;/form&gt;</p>
+<p class="p1"><span class="Apple-converted-space">              </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>)}</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">          </span>{/* 彈窗 5：新增或編輯成員 / 個人設定 Modal */}</p>
+<p class="p1"><span class="Apple-converted-space">          </span>{isMemberModalOpen &amp;&amp; (</p>
+<p class="p1"><span class="Apple-converted-space">            </span>&lt;div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">              </span>&lt;div className="bg-slate-800 border border-slate-700 rounded-2xl w-full max-w-sm p-5 shadow-2xl space-y-3"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                </span>&lt;div className="flex items-center justify-between border-b border-slate-700 pb-2"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>&lt;h3 className="font-bold text-white text-sm"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>{isPersonalSettings ? '個人設定 (修改姓名/頭貼/密碼)' : (editingMemberData ? '編輯成員資料' : '新增成員')}</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>&lt;/h3&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>&lt;button onClick={() =&gt; setIsMemberModalOpen(false)} className="text-slate-400"&gt;&lt;i data-lucide="x" className="w-5 h-5"&gt;&lt;/i&gt;&lt;/button&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                </span>&lt;form onSubmit={handleSaveMemberSubmit} className="space-y-3 text-xs"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>&lt;div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>&lt;label className="block text-slate-400 mb-1"&gt;姓名&lt;/label&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>&lt;input name="name" defaultValue={editingMemberData?.name || ''} required placeholder="例：許小華" className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2 text-white" /&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>&lt;/div&gt;</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">                  </span>{!isPersonalSettings &amp;&amp; (</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>&lt;&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                      </span>&lt;div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                        </span>&lt;label className="block text-slate-400 mb-1"&gt;所屬組別&lt;/label&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                        </span>&lt;select name="dept" defaultValue={editingMemberData?.dept || 'director'} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2 text-white"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                          </span>&lt;option value="admin"&gt;總召辦公室&lt;/option&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                          </span>&lt;option value="director"&gt;導播組&lt;/option&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                          </span>&lt;option value="audio"&gt;音控組&lt;/option&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                          </span>&lt;option value="cam1"&gt;CAM1 攝影組&lt;/option&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                          </span>&lt;option value="cam2"&gt;CAM2 攝影組&lt;/option&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                          </span>&lt;option value="slides"&gt;簡報組&lt;/option&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                          </span>&lt;option value="intern"&gt;實習生 / 支援&lt;/option&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                        </span>&lt;/select&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                      </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                      </span>&lt;div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                        </span>&lt;label className="block text-slate-400 mb-1"&gt;頭銜 / 職務&lt;/label&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                        </span>&lt;input name="title" defaultValue={editingMemberData?.title || '直播實習生'} required placeholder="例：導播組長、直播實習生" className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2 text-white" /&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                      </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>&lt;/&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>)}</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">                  </span>&lt;div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>&lt;label className="block text-slate-400 mb-1"&gt;上傳大頭貼照片檔案&lt;/label&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>&lt;input type="file" accept="image/*" onChange={handleImageUpload} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-1.5 text-slate-300 text-xs file:mr-3 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-indigo-650 file:text-white hover:file:bg-indigo-500" /&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>&lt;/div&gt;</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">                  </span>&lt;div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>&lt;label className="block text-slate-400 mb-1"&gt;登入密碼&lt;/label&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>&lt;input name="password" defaultValue={editingMemberData?.password || ''} required placeholder="例：31S999" className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2 text-white font-mono" /&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>&lt;/div&gt;</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">                  </span>{!isPersonalSettings &amp;&amp; currentUser.role === 'admin' &amp;&amp; (</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>&lt;div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                      </span>&lt;label className="block text-slate-400 mb-1"&gt;系統權限層級&lt;/label&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                      </span>&lt;select name="role" defaultValue={editingMemberData?.role || 'member'} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2 text-white"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                        </span>&lt;option value="member"&gt;組員 / 實習生&lt;/option&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                        </span>&lt;option value="leader"&gt;組長&lt;/option&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                        </span>&lt;option value="admin"&gt;老師 / 總召&lt;/option&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                      </span>&lt;/select&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>)}</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">                  </span>&lt;div className="flex justify-end space-x-2 pt-2 border-t border-slate-700"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>&lt;button type="button" onClick={() =&gt; setIsMemberModalOpen(false)} className="px-3 py-1.5 bg-slate-700 text-slate-300 rounded-xl"&gt;取消&lt;/button&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>&lt;button type="submit" className="px-3 py-1.5 bg-indigo-600 text-white rounded-xl font-bold"&gt;確認儲存&lt;/button&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                </span>&lt;/form&gt;</p>
+<p class="p1"><span class="Apple-converted-space">              </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>)}</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>);</p>
+<p class="p1"><span class="Apple-converted-space">    </span>}</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">    </span>const root = ReactDOM.createRoot(document.getElementById('root'));</p>
+<p class="p1"><span class="Apple-converted-space">    </span>root.render(&lt;App /&gt;);</p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;/script&gt;</p>
+<p class="p1">&lt;/body&gt;</p>
+<p class="p1">&lt;/html&gt;</p>
+</body>
+</html>
