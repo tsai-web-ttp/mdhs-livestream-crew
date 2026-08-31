@@ -134,7 +134,7 @@
 
       const [isMemberModalOpen, setIsMemberModalOpen] = useState(false);
       const [editingMemberData, setEditingMemberData] = useState(null);
-      const [isPersonalSettings, setIsPersonalSettings] = useState(false); // 判斷是否為個人設定
+      const [isPersonalSettings, setIsPersonalSettings] = useState(false);
 
       const [avatarBase64, setAvatarBase64] = useState('');
 
@@ -143,6 +143,9 @@
 
       const [memberSearchQuery, setMemberSearchQuery] = useState('');
       const [message, setMessage] = useState(null);
+
+      // 客製刪除確認 Modal 狀態
+      const [deleteConfirm, setDeleteConfirm] = useState(null);
 
       const showToast = (txt) => {
         setMessage(txt);
@@ -153,23 +156,32 @@
         if (!window.FirebaseSDK) return;
         const { initializeApp, getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged, getFirestore } = window.FirebaseSDK;
         try {
+          if (firebaseConfig.apiKey === "demo" || !firebaseConfig.apiKey) {
+            console.warn("未檢測到有效的 Firebase 金鑰，系統將運行於本機模式。");
+            return;
+          }
+
           const app = initializeApp(firebaseConfig);
           const auth = getAuth(app);
           const firestore = getFirestore(app);
-          setDb(firestore);
 
           const initAuth = async () => {
-            if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-              await signInWithCustomToken(auth, __initial_auth_token);
-            } else {
-              await signInAnonymously(auth);
+            try {
+              if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                await signInWithCustomToken(auth, __initial_auth_token);
+              } else {
+                await signInAnonymously(auth);
+              }
+              setDb(firestore);
+            } catch (authErr) {
+              console.warn("Firebase Auth 認證失敗，切換至本機模式：", authErr);
             }
           };
           initAuth();
           const unsubscribe = onAuthStateChanged(auth, (usr) => setAuthUser(usr));
           return () => unsubscribe();
         } catch (err) {
-          console.error(err);
+          console.warn("Firebase 初始化失敗，使用本機模式：", err);
         }
       }, []);
 
@@ -187,44 +199,48 @@
 
         const unsubs = [];
 
-        unsubs.push(onSnapshot(schedulesRef, (snapshot) => {
-          if (snapshot.empty) {
-            INITIAL_SCHEDULES.forEach(sch => setDoc(doc(schedulesRef, sch.id), sch));
-          } else {
+        try {
+          unsubs.push(onSnapshot(schedulesRef, (snapshot) => {
+            if (snapshot.empty) {
+              INITIAL_SCHEDULES.forEach(sch => setDoc(doc(schedulesRef, sch.id), sch));
+            } else {
+              const list = snapshot.docs.map(d => d.data());
+              list.sort((a, b) => new Date(a.date) - new Date(b.date));
+              setSchedules(list);
+            }
+          }, (err) => console.warn("Schedules listener error:", err)));
+
+          unsubs.push(onSnapshot(membersRef, (snapshot) => {
+            if (snapshot.empty) {
+              INITIAL_MEMBERS.forEach(m => setDoc(doc(membersRef, m.id), m));
+            } else {
+              const list = snapshot.docs.map(d => d.data());
+              setMembers(list);
+              setCurrentUser(prev => prev ? list.find(m => m.id === prev.id) || prev : null);
+            }
+          }, (err) => console.warn("Members listener error:", err)));
+
+          unsubs.push(onSnapshot(doc(annRef, 'main'), (snap) => {
+            if (snap.exists()) setAnnouncement(snap.data().text || '');
+            else setDoc(doc(annRef, 'main'), { text: '📢 請全體成員於 09/07 朝會前 10 分鐘完成所有設備校正！' });
+          }, (err) => console.warn("Announcement listener error:", err)));
+
+          unsubs.push(onSnapshot(doc(sopRef, 'main'), (snap) => {
+            if (snap.exists()) setSopData(snap.data().content || INITIAL_SOP);
+            else setDoc(doc(sopRef, 'main'), { content: INITIAL_SOP });
+          }, (err) => console.warn("SOP listener error:", err)));
+
+          unsubs.push(onSnapshot(suggestionsRef, (snapshot) => {
             const list = snapshot.docs.map(d => d.data());
-            list.sort((a, b) => new Date(a.date) - new Date(b.date));
-            setSchedules(list);
-          }
-        }));
+            list.sort((a, b) => b.timestamp - a.timestamp);
+            setLeaderSuggestions(list);
+          }, (err) => console.warn("Suggestions listener error:", err)));
 
-        unsubs.push(onSnapshot(membersRef, (snapshot) => {
-          if (snapshot.empty) {
-            INITIAL_MEMBERS.forEach(m => setDoc(doc(membersRef, m.id), m));
-          } else {
-            const list = snapshot.docs.map(d => d.data());
-            setMembers(list);
-            setCurrentUser(prev => prev ? list.find(m => m.id === prev.id) || prev : null);
-          }
-        }));
-
-        unsubs.push(onSnapshot(doc(annRef, 'main'), (snap) => {
-          if (snap.exists()) setAnnouncement(snap.data().text || '');
-          else setDoc(doc(annRef, 'main'), { text: '📢 請全體成員於 09/07 朝會前 10 分鐘完成所有設備校正！' });
-        }));
-
-        unsubs.push(onSnapshot(doc(sopRef, 'main'), (snap) => {
-          if (snap.exists()) setSopData(snap.data().content || INITIAL_SOP);
-          else setDoc(doc(sopRef, 'main'), { content: INITIAL_SOP });
-        }));
-
-        unsubs.push(onSnapshot(suggestionsRef, (snapshot) => {
-          const list = snapshot.docs.map(d => d.data());
-          list.sort((a, b) => b.timestamp - a.timestamp);
-          setLeaderSuggestions(list);
-        }));
-
-        unsubs.push(onSnapshot(repairsRef, (snapshot) => setRepairs(snapshot.docs.map(d => d.data()))));
-        unsubs.push(onSnapshot(swapsRef, (snapshot) => setSwaps(snapshot.docs.map(d => d.data()))));
+          unsubs.push(onSnapshot(repairsRef, (snapshot) => setRepairs(snapshot.docs.map(d => d.data())), (err) => console.warn("Repairs listener error:", err)));
+          unsubs.push(onSnapshot(swapsRef, (snapshot) => setSwaps(snapshot.docs.map(d => d.data())), (err) => console.warn("Swaps listener error:", err)));
+        } catch (e) {
+          console.warn("Snapshot register error:", e);
+        }
 
         return () => unsubs.forEach(unsub => unsub());
       }, [db, authUser]);
@@ -276,28 +292,44 @@
           timestamp: Date.now()
         };
 
-        if (db) {
-          const { doc, setDoc } = window.FirebaseSDK;
-          await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'suggestions', sugObj.id), sugObj);
-          showToast('組長公告/建議已發布！');
-        } else {
-          setLeaderSuggestions([sugObj, ...leaderSuggestions]);
-          showToast('已發布');
+        try {
+          if (db) {
+            const { doc, setDoc } = window.FirebaseSDK;
+            await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'suggestions', sugObj.id), sugObj);
+            showToast('組長公告/建議已發布！');
+          } else {
+            setLeaderSuggestions(prev => [sugObj, ...prev]);
+            showToast('已發布 (本機模式)');
+          }
+        } catch (err) {
+          console.error("Firebase sync failed:", err);
+          setLeaderSuggestions(prev => [sugObj, ...prev]);
+          showToast('已發布 (本機模式)');
         }
         setIsSuggestionModalOpen(false);
       };
 
-      const handleDeleteSuggestion = async (sugId) => {
-        if (confirm('確定要刪除這則公告/建議嗎？')) {
-          if (db) {
-            const { doc, deleteDoc } = window.FirebaseSDK;
-            await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'suggestions', sugId));
-            showToast('已刪除公告');
-          } else {
-            setLeaderSuggestions(leaderSuggestions.filter(s => s.id !== sugId));
-            showToast('已刪除');
+      const triggerDeleteSuggestion = (sugId) => {
+        setDeleteConfirm({
+          title: '刪除公告/建議',
+          message: '確定要刪除這則公告/建議嗎？此操作無法復原。',
+          onConfirm: async () => {
+            try {
+              if (db) {
+                const { doc, deleteDoc } = window.FirebaseSDK;
+                await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'suggestions', sugId));
+                showToast('已刪除公告/建議');
+              } else {
+                setLeaderSuggestions(prev => prev.filter(s => s.id !== sugId));
+                showToast('已刪除');
+              }
+            } catch (err) {
+              setLeaderSuggestions(prev => prev.filter(s => s.id !== sugId));
+              showToast('已刪除 (本機模式)');
+            }
+            setDeleteConfirm(null);
           }
-        }
+        });
       };
 
       const handleSaveSop = async (roleKey) => {
@@ -310,13 +342,18 @@
           }
         };
 
-        if (db) {
-          const { doc, setDoc } = window.FirebaseSDK;
-          await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'sops', 'main'), { content: updatedSop });
-          showToast('SOP 已成功更新！');
-        } else {
+        try {
+          if (db) {
+            const { doc, setDoc } = window.FirebaseSDK;
+            await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'sops', 'main'), { content: updatedSop });
+            showToast('SOP 已成功更新！');
+          } else {
+            setSopData(updatedSop);
+            showToast('SOP 已更新');
+          }
+        } catch (err) {
           setSopData(updatedSop);
-          showToast('SOP 已更新');
+          showToast('SOP 已更新 (本機模式)');
         }
         setEditingSopKey(null);
       };
@@ -326,8 +363,8 @@
         else {
           setEditingScheduleData({
             id: `sch-${Date.now()}`,
-            date: '2026-09-28',
-            title: '新朝會排班',
+            date: new Date().toISOString().split('T')[0],
+            title: '朝會直播排班',
             time: '07:30 - 08:20',
             assignments: { director: [], audio: [], cam1: [], cam2: [], slides: [] }
           });
@@ -351,28 +388,72 @@
       const handleSaveScheduleSubmit = async (e) => {
         e.preventDefault();
         if (!editingScheduleData) return;
-        if (db) {
-          const { doc, setDoc } = window.FirebaseSDK;
-          await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'schedules', editingScheduleData.id), editingScheduleData);
-          showToast('班表已即時同步！');
-        } else {
-          setSchedules(schedules.map(s => s.id === editingScheduleData.id ? editingScheduleData : s));
-          showToast('已儲存班表');
+        try {
+          if (db) {
+            const { doc, setDoc } = window.FirebaseSDK;
+            await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'schedules', editingScheduleData.id), editingScheduleData);
+            showToast('班表已即時同步！');
+          } else {
+            setSchedules(prev => {
+              const exists = prev.some(s => s.id === editingScheduleData.id);
+              if (exists) return prev.map(s => s.id === editingScheduleData.id ? editingScheduleData : s);
+              return [...prev, editingScheduleData];
+            });
+            showToast('已儲存班表');
+          }
+        } catch (err) {
+          console.error(err);
+          setSchedules(prev => {
+            const exists = prev.some(s => s.id === editingScheduleData.id);
+            if (exists) return prev.map(s => s.id === editingScheduleData.id ? editingScheduleData : s);
+            return [...prev, editingScheduleData];
+          });
+          showToast('已儲存班表 (本機模式)');
         }
         setIsEditingSchedule(false);
         setEditingScheduleData(null);
       };
 
+      const triggerDeleteSchedule = (sch) => {
+        setDeleteConfirm({
+          title: '刪除班表確認',
+          message: `確定要刪除班表【${sch.date} ${sch.title}】嗎？刪除後無法恢復。`,
+          onConfirm: async () => {
+            try {
+              if (db) {
+                const { doc, deleteDoc } = window.FirebaseSDK;
+                await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'schedules', sch.id));
+                showToast(`已成功刪除班表：${sch.title}`);
+              } else {
+                setSchedules(prev => prev.filter(s => s.id !== sch.id));
+                showToast(`已刪除班表：${sch.title}`);
+              }
+            } catch (err) {
+              setSchedules(prev => prev.filter(s => s.id !== sch.id));
+              showToast(`已刪除班表 (本機模式)`);
+            }
+            setIsEditingSchedule(false);
+            setEditingScheduleData(null);
+            setDeleteConfirm(null);
+          }
+        });
+      };
+
       const handleUpdateAnnouncement = async () => {
         const newAnn = prompt('編輯主要公告：', announcement);
         if (newAnn) {
-          if (db) {
-            const { doc, setDoc } = window.FirebaseSDK;
-            await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'announcements', 'main'), { text: newAnn });
-            showToast('公告已廣播！');
-          } else {
+          try {
+            if (db) {
+              const { doc, setDoc } = window.FirebaseSDK;
+              await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'announcements', 'main'), { text: newAnn });
+              showToast('公告已廣播！');
+            } else {
+              setAnnouncement(newAnn);
+              showToast('公告已更新');
+            }
+          } catch (err) {
             setAnnouncement(newAnn);
-            showToast('公告已更新');
+            showToast('公告已更新 (本機模式)');
           }
         }
       };
@@ -388,13 +469,18 @@
           reason: formData.get('reason'),
           status: 'pending'
         };
-        if (db) {
-          const { doc, setDoc } = window.FirebaseSDK;
-          await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'swaps', newSwap.id), newSwap);
-          showToast('請假/換班申請已送出！');
-        } else {
-          setSwaps([newSwap, ...swaps]);
-          showToast('申請已送出');
+        try {
+          if (db) {
+            const { doc, setDoc } = window.FirebaseSDK;
+            await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'swaps', newSwap.id), newSwap);
+            showToast('請假/換班申請已送出！');
+          } else {
+            setSwaps(prev => [newSwap, ...prev]);
+            showToast('申請已送出');
+          }
+        } catch (err) {
+          setSwaps(prev => [newSwap, ...prev]);
+          showToast('申請已送出 (本機模式)');
         }
         setIsSwapModalOpen(false);
       };
@@ -403,13 +489,18 @@
         const targetSwap = swaps.find(s => s.id === swapId);
         if (!targetSwap) return;
         const updated = { ...targetSwap, status: newStatus };
-        if (db) {
-          const { doc, setDoc } = window.FirebaseSDK;
-          await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'swaps', swapId), updated);
-          showToast(`已${newStatus === 'approved' ? '核准' : '駁回'}該請假申請！`);
-        } else {
+        try {
+          if (db) {
+            const { doc, setDoc } = window.FirebaseSDK;
+            await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'swaps', swapId), updated);
+            showToast(`已${newStatus === 'approved' ? '核准' : '駁回'}該請假申請！`);
+          } else {
+            setSwaps(swaps.map(s => s.id === swapId ? updated : s));
+            showToast(`已更新申請狀態`);
+          }
+        } catch (err) {
           setSwaps(swaps.map(s => s.id === swapId ? updated : s));
-          showToast(`已更新申請狀態`);
+          showToast(`已更新申請狀態 (本機模式)`);
         }
       };
 
@@ -424,18 +515,22 @@
           issue: formData.get('issue'),
           status: 'pending'
         };
-        if (db) {
-          const { doc, setDoc } = window.FirebaseSDK;
-          await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'repairs', newRepair.id), newRepair);
-          showToast('報修單已提交！');
-        } else {
-          setRepairs([newRepair, ...repairs]);
-          showToast('已提交');
+        try {
+          if (db) {
+            const { doc, setDoc } = window.FirebaseSDK;
+            await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'repairs', newRepair.id), newRepair);
+            showToast('報修單已提交！');
+          } else {
+            setRepairs(prev => [newRepair, ...prev]);
+            showToast('已提交');
+          }
+        } catch (err) {
+          setRepairs(prev => [newRepair, ...prev]);
+          showToast('已提交 (本機模式)');
         }
         setIsRepairModalOpen(false);
       };
 
-      // 儲存成員 / 個人設定
       const handleSaveMemberSubmit = async (e) => {
         e.preventDefault();
         const formData = new FormData(e.target);
@@ -443,7 +538,6 @@
 
         let memberObj;
         if (isPersonalSettings) {
-          // 個人設定模式：只能改姓名、頭貼、密碼
           memberObj = {
             ...currentUser,
             name: formData.get('name'),
@@ -451,7 +545,6 @@
             avatar: finalAvatar
           };
         } else {
-          // 總召管理模式：可改全部
           memberObj = {
             id: editingMemberData ? editingMemberData.id : `m-${Date.now()}`,
             name: formData.get('name'),
@@ -463,17 +556,26 @@
           };
         }
 
-        if (db) {
-          const { doc, setDoc } = window.FirebaseSDK;
-          await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'members', memberObj.id), memberObj);
-          showToast('資料已成功更新！');
-        } else {
+        try {
+          if (db) {
+            const { doc, setDoc } = window.FirebaseSDK;
+            await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'members', memberObj.id), memberObj);
+            showToast('資料已成功更新！');
+          } else {
+            if (editingMemberData || isPersonalSettings) {
+              setMembers(members.map(m => m.id === memberObj.id ? memberObj : m));
+            } else {
+              setMembers([...members, memberObj]);
+            }
+            showToast('操作成功');
+          }
+        } catch (err) {
           if (editingMemberData || isPersonalSettings) {
             setMembers(members.map(m => m.id === memberObj.id ? memberObj : m));
           } else {
             setMembers([...members, memberObj]);
           }
-          showToast('操作成功');
+          showToast('操作成功 (本機模式)');
         }
         setIsMemberModalOpen(false);
         setEditingMemberData(null);
@@ -481,27 +583,27 @@
         setAvatarBase64('');
       };
 
-      const handleDeleteMember = async (memberId, memberName) => {
-        if (confirm(`確定要刪除成員【${memberName}】嗎？`)) {
-          if (db) {
-            const { doc, deleteDoc } = window.FirebaseSDK;
-            await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'members', memberId));
-            showToast(`已刪除：${memberName}`);
-          } else {
-            setMembers(members.filter(m => m.id !== memberId));
-            showToast(`已刪除：${memberName}`);
+      const triggerDeleteMember = (memberId, memberName) => {
+        setDeleteConfirm({
+          title: '刪除成員確認',
+          message: `確定要刪除成員【${memberName}】嗎？此動作將無法復原。`,
+          onConfirm: async () => {
+            try {
+              if (db) {
+                const { doc, deleteDoc } = window.FirebaseSDK;
+                await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'members', memberId));
+                showToast(`已刪除：${memberName}`);
+              } else {
+                setMembers(prev => prev.filter(m => m.id !== memberId));
+                showToast(`已刪除：${memberName}`);
+              }
+            } catch (err) {
+              setMembers(prev => prev.filter(m => m.id !== memberId));
+              showToast(`已刪除：${memberName} (本機模式)`);
+            }
+            setDeleteConfirm(null);
           }
-        }
-      };
-
-      const copyToClipboard = (text) => {
-        const input = document.createElement('textarea');
-        input.value = text;
-        document.body.appendChild(input);
-        input.select();
-        document.execCommand('copy');
-        document.body.removeChild(input);
-        showToast('已複製：' + text);
+        });
       };
 
       const latestSchedule = useMemo(() => schedules[0] || null, [schedules]);
@@ -512,7 +614,6 @@
         return Object.values(sch.assignments).some(memberIds => Array.isArray(memberIds) && memberIds.includes(userId));
       };
 
-      // 取得當前使用者被排程過的所有日期 (供請假下拉選單使用)
       const userScheduledDates = useMemo(() => {
         if (!currentUser) return [];
         return schedules.filter(sch => isUserInSchedule(sch, currentUser.id)).map(sch => ({
@@ -661,6 +762,7 @@
             </div>
           </aside>
 
+          {}
           <main className="flex-1 p-3 md:p-8 overflow-y-auto custom-scrollbar space-y-4 md:space-y-6">
             
             <div className="bg-gradient-to-r from-slate-800 via-indigo-950/50 to-slate-800 border border-indigo-500/40 rounded-2xl p-3 md:p-4 flex items-center justify-between shadow-lg">
@@ -694,9 +796,9 @@
               </div>
 
               <div className="hidden sm:block text-right">
-                <span className="text-[10px] text-emerald-400 flex items-center justify-end font-mono mb-0.5">
-                  <span className="w-2 h-2 rounded-full bg-emerald-400 mr-1 animate-pulse"></span>
-                  Firebase 雲端同步中
+                <span className={`text-[10px] flex items-center justify-end font-mono mb-0.5 ${db ? 'text-emerald-400' : 'text-amber-400'}`}>
+                  <span className={`w-2 h-2 rounded-full mr-1 ${db ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`}></span>
+                  {db ? 'Firebase 雲端同步中' : '單機 / 本機模式'}
                 </span>
                 <span className="text-xs font-semibold text-slate-200">
                   {currentUser.role === 'admin' ? '最高權限' : currentUser.role === 'leader' ? '組長權限' : '組員'}
@@ -758,25 +860,13 @@
                       </div>
 
                       {(currentUser.role === 'admin' || currentUser.role === 'leader' || currentUser.id === sug.authorId) && (
-                        <button onClick={() => handleDeleteSuggestion(sug.id)} className="text-slate-500 hover:text-rose-400 p-1 transition" title="刪除">
+                        <button onClick={() => triggerDeleteSuggestion(sug.id)} className="text-slate-500 hover:text-rose-400 p-1 transition" title="刪除">
                           <i data-lucide="trash-2" className="w-4 h-4"></i>
                         </button>
                       )}
                     </div>
                   ))}
                 </div>
-              </div>
-            )}
-
-            {leaderSuggestions.length === 0 && (currentUser.role === 'admin' || currentUser.role === 'leader') && (
-              <div className="flex justify-end">
-                <button
-                  onClick={() => setIsSuggestionModalOpen(true)}
-                  className="bg-slate-800 hover:bg-slate-700 border border-amber-500/40 text-amber-400 text-xs px-3 py-2 rounded-xl transition flex items-center space-x-1.5"
-                >
-                  <i data-lucide="plus-circle" className="w-4 h-4"></i>
-                  <span>+ 發布第一則組長公告/建議</span>
-                </button>
               </div>
             )}
 
@@ -822,6 +912,7 @@
                   </div>
                 </div>
 
+                {}
                 <div className="bg-slate-800 border border-slate-700 rounded-2xl p-4 md:p-6 shadow-md space-y-6">
                   <div className="flex items-center justify-between pb-3 border-b border-slate-700">
                     <div>
@@ -830,8 +921,9 @@
                         全體月班表
                       </h3>
                     </div>
-                    {(currentUser.role === 'admin' || currentUser.role === 'leader') && (
-                      <button onClick={() => handleOpenScheduleModal(null)} className="bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-xs px-3 py-2 rounded-xl transition flex items-center space-x-1">
+                    {/* 只有總召/老師 (admin) 才可以新增班表 */}
+                    {currentUser.role === 'admin' && (
+                      <button onClick={() => handleOpenScheduleModal(null)} className="bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-xs px-3 py-2 rounded-xl transition flex items-center space-x-1 shadow-md">
                         <i data-lucide="plus-circle" className="w-4 h-4"></i>
                         <span>新增班表</span>
                       </button>
@@ -848,7 +940,7 @@
                         <span className="text-[11px] text-rose-400 font-bold bg-rose-500/10 px-2 py-0.5 rounded-full border border-rose-500/20">即將到來</span>
                       </div>
                       <div className="bg-slate-900 border-2 border-indigo-500/60 rounded-2xl p-4 shadow-xl relative">
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 mb-3 border-b border-slate-800 gap-1">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 mb-3 border-b border-slate-800 gap-2">
                           <div>
                             <div className="flex items-center space-x-2 mb-1">
                               <span className="bg-indigo-600 text-white text-[10px] px-2.5 py-0.5 rounded-full font-mono font-bold">{latestSchedule.date}</span>
@@ -856,11 +948,25 @@
                             </div>
                             <h4 className="font-bold text-white text-base">{latestSchedule.title}</h4>
                           </div>
-                          {(currentUser.role === 'admin' || currentUser.role === 'leader') && (
-                            <button onClick={() => handleOpenScheduleModal(latestSchedule)} className="self-end sm:self-auto text-xs bg-slate-800 hover:bg-slate-700 text-indigo-300 border border-slate-700 px-3 py-1.5 rounded-xl font-medium">
-                              編輯工作人員
-                            </button>
-                          )}
+
+                          <div className="flex items-center space-x-2 self-end sm:self-auto">
+                            {(currentUser.role === 'admin' || currentUser.role === 'leader') && (
+                              <button onClick={() => handleOpenScheduleModal(latestSchedule)} className="text-xs bg-slate-800 hover:bg-slate-700 text-indigo-300 border border-slate-700 px-3 py-1.5 rounded-xl font-medium transition">
+                                編輯工作人員
+                              </button>
+                            )}
+                            {/* 總召限定：刪除班表按鈕 */}
+                            {currentUser.role === 'admin' && (
+                              <button
+                                onClick={() => triggerDeleteSchedule(latestSchedule)}
+                                className="text-xs bg-rose-950/40 hover:bg-rose-900 text-rose-300 border border-rose-500/30 px-2.5 py-1.5 rounded-xl transition flex items-center space-x-1"
+                                title="刪除班表"
+                              >
+                                <i data-lucide="trash-2" className="w-3.5 h-3.5"></i>
+                                <span className="hidden sm:inline">刪除</span>
+                              </button>
+                            )}
+                          </div>
                         </div>
 
                         <div className="grid grid-cols-1 sm:grid-cols-5 gap-2.5">
@@ -897,15 +1003,23 @@
                       <div className="space-y-3">
                         {upcomingSchedules.map((sch) => (
                           <div key={sch.id} className="bg-slate-900/60 border border-slate-700/80 rounded-xl p-3 md:p-4">
-                            <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-2 mb-2 border-b border-slate-800 gap-1">
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-2 mb-2 border-b border-slate-800 gap-2">
                               <div className="flex items-center space-x-2">
                                 <span className="bg-slate-800 text-slate-300 text-[10px] px-2 py-0.5 rounded font-mono font-bold border border-slate-700">{sch.date}</span>
                                 <span className="text-xs text-slate-400">{sch.time}</span>
                                 <h4 className="font-bold text-white text-xs md:text-sm">{sch.title}</h4>
                               </div>
-                              {(currentUser.role === 'admin' || currentUser.role === 'leader') && (
-                                <button onClick={() => handleOpenScheduleModal(sch)} className="self-end sm:self-auto text-[11px] text-indigo-400 hover:underline">編輯人員</button>
-                              )}
+                              <div className="flex items-center space-x-2 self-end sm:self-auto">
+                                {(currentUser.role === 'admin' || currentUser.role === 'leader') && (
+                                  <button onClick={() => handleOpenScheduleModal(sch)} className="text-[11px] text-indigo-400 hover:underline">編輯人員</button>
+                                )}
+                                {currentUser.role === 'admin' && (
+                                  <button onClick={() => triggerDeleteSchedule(sch)} className="text-[11px] text-rose-400 hover:underline flex items-center space-x-0.5">
+                                    <i data-lucide="trash-2" className="w-3 h-3"></i>
+                                    <span>刪除</span>
+                                  </button>
+                                )}
+                              </div>
                             </div>
                             <div className="grid grid-cols-1 sm:grid-cols-5 gap-2">
                               {DUTY_ROLES.map(role => {
@@ -929,10 +1043,17 @@
                       </div>
                     </div>
                   )}
+
+                  {schedules.length === 0 && (
+                    <div className="text-center py-10 text-slate-500 text-xs">
+                      目前尚無任何班表，總召點擊右上方「+ 新增班表」建立新朝會活動。
+                    </div>
+                  )}
                 </div>
               </div>
             )}
 
+            {}
             {activeTab === 'sop' && (
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
@@ -1001,6 +1122,7 @@
               </div>
             )}
 
+            {}
             {activeTab === 'repairs' && (
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
@@ -1022,10 +1144,18 @@
                         {(currentUser.role === 'admin' || currentUser.role === 'leader') && (
                           <button onClick={async () => {
                             const updated = { ...rep, status: rep.status === 'pending' ? 'resolved' : 'pending' };
-                            if (db) {
-                              const { doc, setDoc } = window.FirebaseSDK;
-                              await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'repairs', rep.id), updated);
-                              showToast('報修狀態已更新！');
+                            try {
+                              if (db) {
+                                const { doc, setDoc } = window.FirebaseSDK;
+                                await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'repairs', rep.id), updated);
+                                showToast('報修狀態已更新！');
+                              } else {
+                                setRepairs(prev => prev.map(r => r.id === rep.id ? updated : r));
+                                showToast('報修狀態已更新 (本機模式)');
+                              }
+                            } catch (err) {
+                              setRepairs(prev => prev.map(r => r.id === rep.id ? updated : r));
+                              showToast('報修狀態已更新 (本機模式)');
                             }
                           }} className="text-indigo-400 font-bold">切換狀態</button>
                         )}
@@ -1109,6 +1239,7 @@
               </div>
             )}
 
+            {}
             {activeTab === 'admin' && currentUser.role === 'admin' && (
               <div className="space-y-4">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -1168,10 +1299,18 @@
                           onChange={async (e) => {
                             const newRole = e.target.value;
                             const updated = { ...m, role: newRole };
-                            if (db) {
-                              const { doc, setDoc } = window.FirebaseSDK;
-                              await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'members', m.id), updated);
-                              showToast(`已更新 ${m.name} 權限`);
+                            try {
+                              if (db) {
+                                const { doc, setDoc } = window.FirebaseSDK;
+                                await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'members', m.id), updated);
+                                showToast(`已更新 ${m.name} 權限`);
+                              } else {
+                                setMembers(prev => prev.map(item => item.id === m.id ? updated : item));
+                                showToast(`已更新 ${m.name} 權限 (本機模式)`);
+                              }
+                            } catch (err) {
+                              setMembers(prev => prev.map(item => item.id === m.id ? updated : item));
+                              showToast(`已更新 ${m.name} 權限 (本機模式)`);
                             }
                           }}
                           className="bg-slate-900 border border-slate-700 text-xs text-white rounded p-1.5 focus:outline-none"
@@ -1183,7 +1322,7 @@
 
                         <button onClick={() => { setEditingMemberData(m); setIsPersonalSettings(false); setAvatarBase64(''); setIsMemberModalOpen(true); }} className="bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs px-2.5 py-1.5 rounded-lg">編輯</button>
                         {m.id !== currentUser.id && (
-                          <button onClick={() => handleDeleteMember(m.id, m.name)} className="bg-rose-900/40 hover:bg-rose-900 text-rose-300 text-xs px-2.5 py-1.5 rounded-lg border border-rose-500/30">刪除</button>
+                          <button onClick={() => triggerDeleteMember(m.id, m.name)} className="bg-rose-900/40 hover:bg-rose-900 text-rose-300 text-xs px-2.5 py-1.5 rounded-lg border border-rose-500/30">刪除</button>
                         )}
                       </div>
                     </div>
@@ -1194,6 +1333,7 @@
 
           </main>
 
+          {}
           {isSuggestionModalOpen && (
             <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
               <div className="bg-slate-800 border border-slate-700 rounded-2xl w-full max-w-md p-5 shadow-2xl space-y-3">
@@ -1215,11 +1355,14 @@
             </div>
           )}
 
+          {/* 編輯 / 新增班表 Modal (含總召刪除班表按鈕) */}
           {isEditingSchedule && editingScheduleData && (
             <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
               <div className="bg-slate-800 border border-slate-700 rounded-2xl w-full max-w-lg p-5 shadow-2xl space-y-4 max-h-[90vh] flex flex-col">
                 <div className="flex items-center justify-between border-b border-slate-700 pb-3 flex-shrink-0">
-                  <h3 className="font-bold text-white text-base">編輯工作人員排班 (分組/跨組調度)</h3>
+                  <h3 className="font-bold text-white text-base">
+                    {schedules.some(s => s.id === editingScheduleData.id) ? '編輯班表與工作人員' : '建立新朝會排班'}
+                  </h3>
                   <button onClick={() => setIsEditingSchedule(false)} className="text-slate-400 hover:text-white"><i data-lucide="x" className="w-5 h-5"></i></button>
                 </div>
                 <form onSubmit={handleSaveScheduleSubmit} className="space-y-4 text-xs overflow-y-auto pr-1 custom-scrollbar">
@@ -1281,15 +1424,31 @@
                     })}
                   </div>
 
-                  <div className="flex justify-end space-x-2 pt-3 border-t border-slate-700 flex-shrink-0">
-                    <button type="button" onClick={() => setIsEditingSchedule(false)} className="px-4 py-2 bg-slate-700 text-slate-300 rounded-xl">取消</button>
-                    <button type="submit" className="px-4 py-2 bg-indigo-600 text-white rounded-xl font-bold">儲存並即時同步</button>
+                  <div className="flex items-center justify-between pt-3 border-t border-slate-700 flex-shrink-0">
+                    <div>
+                      {/* 總召專屬：若此班表已存在於清單中，顯示刪除該班表按鈕 */}
+                      {currentUser.role === 'admin' && schedules.some(s => s.id === editingScheduleData.id) && (
+                        <button
+                          type="button"
+                          onClick={() => triggerDeleteSchedule(editingScheduleData)}
+                          className="px-3 py-2 bg-rose-950/60 hover:bg-rose-900 border border-rose-500/40 text-rose-300 rounded-xl transition flex items-center space-x-1"
+                        >
+                          <i data-lucide="trash-2" className="w-4 h-4"></i>
+                          <span>刪除此班表</span>
+                        </button>
+                      )}
+                    </div>
+                    <div className="flex space-x-2">
+                      <button type="button" onClick={() => setIsEditingSchedule(false)} className="px-4 py-2 bg-slate-700 text-slate-300 rounded-xl">取消</button>
+                      <button type="submit" className="px-4 py-2 bg-indigo-600 text-white rounded-xl font-bold">儲存並即時同步</button>
+                    </div>
                   </div>
                 </form>
               </div>
             </div>
           )}
 
+          {}
           {isSwapModalOpen && (
             <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
               <div className="bg-slate-800 border border-slate-700 rounded-2xl w-full max-w-sm p-5 shadow-2xl space-y-3">
@@ -1354,7 +1513,6 @@
             </div>
           )}
 
-          {/* 彈窗 5：新增或編輯成員 / 個人設定 Modal */}
           {isMemberModalOpen && (
             <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
               <div className="bg-slate-800 border border-slate-700 rounded-2xl w-full max-w-sm p-5 shadow-2xl space-y-3">
@@ -1393,7 +1551,7 @@
 
                   <div>
                     <label className="block text-slate-400 mb-1">上傳大頭貼照片檔案</label>
-                    <input type="file" accept="image/*" onChange={handleImageUpload} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-1.5 text-slate-300 text-xs file:mr-3 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-indigo-650 file:text-white hover:file:bg-indigo-500" />
+                    <input type="file" accept="image/*" onChange={handleImageUpload} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-1.5 text-slate-300 text-xs file:mr-3 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-indigo-600 file:text-white hover:file:bg-indigo-500" />
                   </div>
 
                   <div>
@@ -1417,6 +1575,37 @@
                     <button type="submit" className="px-3 py-1.5 bg-indigo-600 text-white rounded-xl font-bold">確認儲存</button>
                   </div>
                 </form>
+              </div>
+            </div>
+          )}
+
+          {}
+          {deleteConfirm && (
+            <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
+              <div className="bg-slate-800 border border-slate-700 rounded-2xl w-full max-w-sm p-5 shadow-2xl space-y-4">
+                <div className="flex items-center space-x-3 text-rose-400">
+                  <div className="bg-rose-500/20 p-2 rounded-xl border border-rose-500/30">
+                    <i data-lucide="alert-triangle" className="w-5 h-5"></i>
+                  </div>
+                  <h3 className="font-bold text-white text-sm">{deleteConfirm.title}</h3>
+                </div>
+                <p className="text-xs text-slate-300 leading-relaxed">{deleteConfirm.message}</p>
+                <div className="flex justify-end space-x-2 pt-2 border-t border-slate-700">
+                  <button
+                    type="button"
+                    onClick={() => setDeleteConfirm(null)}
+                    className="px-3.5 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-xl text-xs font-medium transition"
+                  >
+                    取消
+                  </button>
+                  <button
+                    type="button"
+                    onClick={deleteConfirm.onConfirm}
+                    className="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-500 text-white font-bold rounded-xl text-xs transition shadow-lg"
+                  >
+                    確認刪除
+                  </button>
+                </div>
               </div>
             </div>
           )}
