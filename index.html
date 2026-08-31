@@ -34,6 +34,9 @@
       getDoc,
       onSnapshot
     };
+
+    // 發送 SDK 載入完成事件，解決 ES Module 異步加載時序競爭問題
+    window.dispatchEvent(new Event('firebase-sdk-ready'));
   </script>
 
   <style>
@@ -59,11 +62,11 @@
   <div id="root"></div>
 
   <script type="text/babel">
-    const { useState, useEffect, useMemo } = React;
+    const { useState, useEffect, useMemo, useRef } = React;
 
     const appId = typeof __app_id !== 'undefined' ? __app_id : 'live-stream-team-portal';
     const firebaseConfig = typeof __firebase_config !== 'undefined' 
-      ? JSON.parse(__firebase_config) 
+      ? (typeof __firebase_config === 'string' ? JSON.parse(__firebase_config) : __firebase_config) 
       : { apiKey: "demo", authDomain: "demo", projectId: "demo" };
 
     const INITIAL_MEMBERS = [
@@ -106,12 +109,38 @@
     };
 
     function App() {
+      const [sdkReady, setSdkReady] = useState(!!window.FirebaseSDK);
       const [db, setDb] = useState(null);
       const [authUser, setAuthUser] = useState(null);
 
       const [currentUser, setCurrentUser] = useState(null);
       const [loginPassword, setLoginPassword] = useState('');
       const [loginError, setLoginError] = useState('');
+
+      const [message, setMessage] = useState('');
+      const [activeTab, setActiveTab] = useState('dashboard');
+      const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+      const [isSuggestionModalOpen, setIsSuggestionModalOpen] = useState(false);
+      const [isEditingSchedule, setIsEditingSchedule] = useState(false);
+      const [editingScheduleData, setEditingScheduleData] = useState(null);
+      const [showAllForRole, setShowAllForRole] = useState({});
+      const [editingSopKey, setEditingSopKey] = useState(null);
+      const [editingSopContent, setEditingSopContent] = useState('');
+      const [isSwapModalOpen, setIsSwapModalOpen] = useState(false);
+      const [isRepairModalOpen, setIsRepairModalOpen] = useState(false);
+      const [isMemberModalOpen, setIsMemberModalOpen] = useState(false);
+      const [editingMemberData, setEditingMemberData] = useState(null);
+      const [isPersonalSettings, setIsPersonalSettings] = useState(false);
+      const [avatarBase64, setAvatarBase64] = useState('');
+      const [memberSearchQuery, setMemberSearchQuery] = useState('');
+      const [deleteConfirm, setDeleteConfirm] = useState(null);
+
+      const showToast = (msg) => {
+        setMessage(msg);
+        setTimeout(() => {
+          setMessage('');
+        }, 3000);
+      };
 
       const [members, setMembers] = useState(INITIAL_MEMBERS);
       const [schedules, setSchedules] = useState(INITIAL_SCHEDULES);
@@ -121,43 +150,67 @@
       const [leaderSuggestions, setLeaderSuggestions] = useState([]); 
       const [sopData, setSopData] = useState(INITIAL_SOP);
 
-      const [activeTab, setActiveTab] = useState('dashboard');
-      const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+      const broadcastRef = useRef(null);
 
-      const [isEditingSchedule, setIsEditingSchedule] = useState(false);
-      const [editingScheduleData, setEditingScheduleData] = useState(null);
-      const [showAllForRole, setShowAllForRole] = useState({});
+      // 1. 監聽 Firebase SDK 異步加載完成
+      useEffect(() => {
+        if (window.FirebaseSDK) {
+          setSdkReady(true);
+          return;
+        }
+        const handleReady = () => setSdkReady(true);
+        window.addEventListener('firebase-sdk-ready', handleReady);
+        const timer = setInterval(() => {
+          if (window.FirebaseSDK) {
+            setSdkReady(true);
+            clearInterval(timer);
+          }
+        }, 100);
+        return () => {
+          window.removeEventListener('firebase-sdk-ready', handleReady);
+          clearInterval(timer);
+        };
+      }, []);
 
-      const [isSwapModalOpen, setIsSwapModalOpen] = useState(false);
-      const [isRepairModalOpen, setIsRepairModalOpen] = useState(false);
-      const [isSuggestionModalOpen, setIsSuggestionModalOpen] = useState(false);
+      // 2. 本地多分頁/多視窗即時廣播頻道 (BroadcastChannel)
+      useEffect(() => {
+        try {
+          if ('BroadcastChannel' in window) {
+            const channel = new BroadcastChannel('md_live_sync_channel');
+            broadcastRef.current = channel;
+            channel.onmessage = (event) => {
+              const { type, payload } = event.data || {};
+              if (type === 'SCHEDULES_UPDATED') setSchedules(payload);
+              if (type === 'MEMBERS_UPDATED') setMembers(payload);
+              if (type === 'ANNOUNCEMENT_UPDATED') setAnnouncement(payload);
+              if (type === 'SUGGESTIONS_UPDATED') setLeaderSuggestions(payload);
+              if (type === 'REPAIRS_UPDATED') setRepairs(payload);
+              if (type === 'SWAPS_UPDATED') setSwaps(payload);
+              if (type === 'SOP_UPDATED') setSopData(payload);
+            };
+            return () => channel.close();
+          }
+        } catch (e) {
+          console.warn("BroadcastChannel not supported:", e);
+        }
+      }, []);
 
-      const [isMemberModalOpen, setIsMemberModalOpen] = useState(false);
-      const [editingMemberData, setEditingMemberData] = useState(null);
-      const [isPersonalSettings, setIsPersonalSettings] = useState(false);
-
-      const [avatarBase64, setAvatarBase64] = useState('');
-
-      const [editingSopKey, setEditingSopKey] = useState(null);
-      const [editingSopContent, setEditingSopContent] = useState('');
-
-      const [memberSearchQuery, setMemberSearchQuery] = useState('');
-      const [message, setMessage] = useState(null);
-
-      // 客製刪除確認 Modal 狀態
-      const [deleteConfirm, setDeleteConfirm] = useState(null);
-
-      const showToast = (txt) => {
-        setMessage(txt);
-        setTimeout(() => setMessage(null), 3000);
+      const notifyLocalSync = (type, payload) => {
+        if (broadcastRef.current) {
+          try {
+            broadcastRef.current.postMessage({ type, payload });
+          } catch (e) {
+            console.warn("Broadcast failed:", e);
+          }
+        }
       };
 
       useEffect(() => {
-        if (!window.FirebaseSDK) return;
+        if (!sdkReady || !window.FirebaseSDK) return;
         const { initializeApp, getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged, getFirestore } = window.FirebaseSDK;
         try {
-          if (firebaseConfig.apiKey === "demo" || !firebaseConfig.apiKey) {
-            console.warn("未檢測到有效的 Firebase 金鑰，系統將運行於本機模式。");
+          if (!firebaseConfig || firebaseConfig.apiKey === "demo" || !firebaseConfig.apiKey) {
+            console.warn("未檢測到有效的 Firebase 金鑰，系統將運行於跨頁籤即時同步模式。");
             return;
           }
 
@@ -174,16 +227,16 @@
               }
               setDb(firestore);
             } catch (authErr) {
-              console.warn("Firebase Auth 認證失敗，切換至本機模式：", authErr);
+              console.warn("Firebase Auth 認證失敗，切換至本機跨頁籤模式：", authErr);
             }
           };
           initAuth();
           const unsubscribe = onAuthStateChanged(auth, (usr) => setAuthUser(usr));
           return () => unsubscribe();
         } catch (err) {
-          console.warn("Firebase 初始化失敗，使用本機模式：", err);
+          console.warn("Firebase 初始化失敗，使用跨頁籤模式：", err);
         }
-      }, []);
+      }, [sdkReady]);
 
       useEffect(() => {
         if (!db || !authUser) return;
@@ -207,6 +260,7 @@
               const list = snapshot.docs.map(d => d.data());
               list.sort((a, b) => new Date(a.date) - new Date(b.date));
               setSchedules(list);
+              notifyLocalSync('SCHEDULES_UPDATED', list);
             }
           }, (err) => console.warn("Schedules listener error:", err)));
 
@@ -217,27 +271,48 @@
               const list = snapshot.docs.map(d => d.data());
               setMembers(list);
               setCurrentUser(prev => prev ? list.find(m => m.id === prev.id) || prev : null);
+              notifyLocalSync('MEMBERS_UPDATED', list);
             }
           }, (err) => console.warn("Members listener error:", err)));
 
           unsubs.push(onSnapshot(doc(annRef, 'main'), (snap) => {
-            if (snap.exists()) setAnnouncement(snap.data().text || '');
-            else setDoc(doc(annRef, 'main'), { text: '📢 請全體成員於 09/07 朝會前 10 分鐘完成所有設備校正！' });
+            if (snap.exists()) {
+              const txt = snap.data().text || '';
+              setAnnouncement(txt);
+              notifyLocalSync('ANNOUNCEMENT_UPDATED', txt);
+            } else {
+              setDoc(doc(annRef, 'main'), { text: '📢 請全體成員於 09/07 朝會前 10 分鐘完成所有設備校正！' });
+            }
           }, (err) => console.warn("Announcement listener error:", err)));
 
           unsubs.push(onSnapshot(doc(sopRef, 'main'), (snap) => {
-            if (snap.exists()) setSopData(snap.data().content || INITIAL_SOP);
-            else setDoc(doc(sopRef, 'main'), { content: INITIAL_SOP });
+            if (snap.exists()) {
+              const content = snap.data().content || INITIAL_SOP;
+              setSopData(content);
+              notifyLocalSync('SOP_UPDATED', content);
+            } else {
+              setDoc(doc(sopRef, 'main'), { content: INITIAL_SOP });
+            }
           }, (err) => console.warn("SOP listener error:", err)));
 
           unsubs.push(onSnapshot(suggestionsRef, (snapshot) => {
             const list = snapshot.docs.map(d => d.data());
             list.sort((a, b) => b.timestamp - a.timestamp);
             setLeaderSuggestions(list);
+            notifyLocalSync('SUGGESTIONS_UPDATED', list);
           }, (err) => console.warn("Suggestions listener error:", err)));
 
-          unsubs.push(onSnapshot(repairsRef, (snapshot) => setRepairs(snapshot.docs.map(d => d.data())), (err) => console.warn("Repairs listener error:", err)));
-          unsubs.push(onSnapshot(swapsRef, (snapshot) => setSwaps(snapshot.docs.map(d => d.data())), (err) => console.warn("Swaps listener error:", err)));
+          unsubs.push(onSnapshot(repairsRef, (snapshot) => {
+            const list = snapshot.docs.map(d => d.data());
+            setRepairs(list);
+            notifyLocalSync('REPAIRS_UPDATED', list);
+          }, (err) => console.warn("Repairs listener error:", err)));
+
+          unsubs.push(onSnapshot(swapsRef, (snapshot) => {
+            const list = snapshot.docs.map(d => d.data());
+            setSwaps(list);
+            notifyLocalSync('SWAPS_UPDATED', list);
+          }, (err) => console.warn("Swaps listener error:", err)));
         } catch (e) {
           console.warn("Snapshot register error:", e);
         }
