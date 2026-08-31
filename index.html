@@ -53,6 +53,52 @@
       background: #334155;
       border-radius: 4px;
     }
+
+    :root {
+      color-scheme: dark;
+    }
+    * { box-sizing: border-box; }
+    button, input, select, textarea { font: inherit; }
+    button { -webkit-user-select: none; user-select: none; }
+    ::selection { background: rgba(99,102,241,.35); }
+    .app-shell {
+      background:
+        radial-gradient(circle at 12% 0%, rgba(79,70,229,.13), transparent 28%),
+        radial-gradient(circle at 90% 12%, rgba(14,165,233,.08), transparent 25%),
+        #080d18;
+    }
+    .glass-panel {
+      background: rgba(15,23,42,.72);
+      border: 1px solid rgba(148,163,184,.12);
+      box-shadow: 0 18px 50px rgba(0,0,0,.18);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+    }
+    .soft-panel {
+      background: linear-gradient(180deg, rgba(30,41,59,.82), rgba(15,23,42,.78));
+      border-color: rgba(148,163,184,.14);
+    }
+    .interactive {
+      transition: transform .18s ease, border-color .18s ease, background-color .18s ease, box-shadow .18s ease;
+    }
+    .interactive:hover { transform: translateY(-1px); }
+    .focus-ring:focus-visible, button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
+      outline: 2px solid rgba(129,140,248,.9);
+      outline-offset: 2px;
+    }
+    .modal-backdrop { animation: fadeIn .16s ease-out; }
+    .modal-card { animation: modalIn .2s ease-out; }
+    .toast-in { animation: toastIn .25s ease-out; }
+    @keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
+    @keyframes modalIn { from { opacity: 0; transform: translateY(10px) scale(.98) } to { opacity: 1; transform: translateY(0) scale(1) } }
+    @keyframes toastIn { from { opacity: 0; transform: translateY(10px) } to { opacity: 1; transform: translateY(0) } }
+    @media (max-width: 767px) {
+      .mobile-safe-bottom { padding-bottom: calc(1rem + env(safe-area-inset-bottom)); }
+      .touch-target { min-height: 44px; min-width: 44px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; }
+    }
   </style>
 </head>
 <body class="bg-slate-900 text-slate-100 min-h-screen">
@@ -136,11 +182,27 @@
 
       const [memberSearchQuery, setMemberSearchQuery] = useState('');
       const [message, setMessage] = useState(null);
+      const [messageType, setMessageType] = useState('success');
+      const [isSaving, setIsSaving] = useState(false);
 
-      const showToast = (txt) => {
+      const showToast = (txt, type = 'success') => {
         setMessage(txt);
+        setMessageType(type);
         setTimeout(() => setMessage(null), 3000);
       };
+
+      useEffect(() => {
+        const onKeyDown = (e) => {
+          if (e.key !== 'Escape') return;
+          setIsSuggestionModalOpen(false);
+          setIsEditingSchedule(false);
+          setIsSwapModalOpen(false);
+          setIsRepairModalOpen(false);
+          setIsMemberModalOpen(false);
+        };
+        window.addEventListener('keydown', onKeyDown);
+        return () => window.removeEventListener('keydown', onKeyDown);
+      }, []);
 
       useEffect(() => {
         if (!window.FirebaseSDK) return;
@@ -244,7 +306,8 @@
       const handleLogin = (e) => {
         e.preventDefault();
         setLoginError('');
-        const foundMember = members.find(m => m.password.toLowerCase() === loginPassword.trim().toLowerCase());
+        const password = loginPassword.trim();
+        const foundMember = password ? members.find(m => String(m.password || '').toLowerCase() === password.toLowerCase()) : null;
         if (foundMember) {
           setCurrentUser(foundMember);
           setLoginPassword('');
@@ -283,6 +346,7 @@
           timestamp: Date.now()
         };
 
+        setIsSaving(true);
         try {
           if (db) {
             const { doc, setDoc } = window.FirebaseSDK;
@@ -290,7 +354,11 @@
           }
         } catch (err) {
           console.error("Firebase write error:", err);
+          showToast('雲端同步失敗，請稍後重試', 'error');
+          setIsSaving(false);
+          return;
         }
+        setIsSaving(false);
         setLeaderSuggestions(prev => [sugObj, ...prev]);
         showToast('組長公告/建議已發布！');
         setIsSuggestionModalOpen(false);
@@ -303,7 +371,11 @@
               const { doc, deleteDoc } = window.FirebaseSDK;
               await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'suggestions', sugId));
             }
-          } catch (err) {}
+          } catch (err) {
+            console.error(err);
+            showToast('公告刪除同步失敗', 'error');
+            return;
+          }
           setLeaderSuggestions(prev => prev.filter(s => s.id !== sugId));
           showToast('已刪除公告');
         }
@@ -324,7 +396,11 @@
             const { doc, setDoc } = window.FirebaseSDK;
             await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'sops', 'main'), { content: updatedSop });
           }
-        } catch (err) {}
+        } catch (err) {
+          console.error(err);
+          showToast('SOP 同步失敗，請稍後重試', 'error');
+          return;
+        }
         setSopData(updatedSop);
         showToast('SOP 已成功更新！');
         setEditingSopKey(null);
@@ -360,6 +436,7 @@
       const handleSaveScheduleSubmit = async (e) => {
         e.preventDefault();
         if (!editingScheduleData) return;
+        setIsSaving(true);
         try {
           if (db) {
             const { doc, setDoc } = window.FirebaseSDK;
@@ -367,7 +444,11 @@
           }
         } catch (err) {
           console.error(err);
+          showToast('班表同步失敗，尚未儲存到雲端', 'error');
+          setIsSaving(false);
+          return;
         }
+        setIsSaving(false);
         setSchedules(prev => {
           const exists = prev.some(s => s.id === editingScheduleData.id);
           const updated = exists ? prev.map(s => s.id === editingScheduleData.id ? editingScheduleData : s) : [...prev, editingScheduleData];
@@ -386,7 +467,11 @@
               const { doc, setDoc } = window.FirebaseSDK;
               await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'announcements', 'main'), { text: newAnn });
             }
-          } catch (err) {}
+          } catch (err) {
+            console.error(err);
+            showToast('公告同步失敗，請稍後重試', 'error');
+            return;
+          }
           setAnnouncement(newAnn);
           showToast('公告已廣播！');
         }
@@ -408,10 +493,14 @@
             const { doc, setDoc } = window.FirebaseSDK;
             await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'swaps', newSwap.id), newSwap);
           }
-        } catch (err) {}
+        } catch (err) {
+          console.error(err);
+          showToast('申請同步失敗，請稍後重試', 'error');
+          return;
+        }
         setSwaps(prev => [newSwap, ...prev]);
         showToast('請假/換班申請已送出！');
-        setIsSwapModelOpen(false);
+        setIsSwapModalOpen(false);
       };
 
       const handleUpdateSwapStatus = async (swapId, newStatus) => {
@@ -423,7 +512,11 @@
             const { doc, setDoc } = window.FirebaseSDK;
             await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'swaps', swapId), updated);
           }
-        } catch (err) {}
+        } catch (err) {
+          console.error(err);
+          showToast('審核結果同步失敗', 'error');
+          return;
+        }
         setSwaps(prev => prev.map(s => s.id === swapId ? updated : s));
         showToast(`已${newStatus === 'approved' ? '核准' : '駁回'}該請假申請！`);
       };
@@ -444,7 +537,11 @@
             const { doc, setDoc } = window.FirebaseSDK;
             await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'repairs', newRepair.id), newRepair);
           }
-        } catch (err) {}
+        } catch (err) {
+          console.error(err);
+          showToast('報修同步失敗，請稍後重試', 'error');
+          return;
+        }
         setRepairs(prev => [newRepair, ...prev]);
         showToast('報修單已提交！');
         setIsRepairModalOpen(false);
@@ -480,7 +577,11 @@
             const { doc, setDoc } = window.FirebaseSDK;
             await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'members', memberObj.id), memberObj);
           }
-        } catch (err) {}
+        } catch (err) {
+          console.error(err);
+          showToast('成員資料同步失敗，請稍後重試', 'error');
+          return;
+        }
 
         setMembers(prev => {
           const exists = prev.some(m => m.id === memberObj.id);
@@ -503,14 +604,30 @@
               const { doc, deleteDoc } = window.FirebaseSDK;
               await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'members', memberId));
             }
-          } catch (err) {}
+          } catch (err) {
+            console.error(err);
+            showToast('成員刪除同步失敗', 'error');
+            return;
+          }
           setMembers(prev => prev.filter(m => m.id !== memberId));
           showToast(`已刪除：${memberName}`);
         }
       };
 
-      const latestSchedule = useMemo(() => schedules[0] || null, [schedules]);
-      const upcomingSchedules = useMemo(() => schedules.slice(1), [schedules]);
+      const sortedSchedules = useMemo(() => {
+        return [...schedules].sort((a, b) => {
+          const da = new Date(`${a.date || ''}T${(a.time || '00:00').split(' - ')[0] || '00:00'}`);
+          const db = new Date(`${b.date || ''}T${(b.time || '00:00').split(' - ')[0] || '00:00'}`);
+          return da - db;
+        });
+      }, [schedules]);
+      const nextScheduleIndex = useMemo(() => {
+        const now = new Date();
+        const idx = sortedSchedules.findIndex(s => new Date(`${s.date || ''}T${(s.time || '00:00').split(' - ')[0] || '00:00'}`) >= now);
+        return idx >= 0 ? idx : (sortedSchedules.length ? sortedSchedules.length - 1 : -1);
+      }, [sortedSchedules]);
+      const latestSchedule = useMemo(() => nextScheduleIndex >= 0 ? sortedSchedules[nextScheduleIndex] : null, [sortedSchedules, nextScheduleIndex]);
+      const upcomingSchedules = useMemo(() => nextScheduleIndex >= 0 ? sortedSchedules.slice(nextScheduleIndex + 1) : [], [sortedSchedules, nextScheduleIndex]);
 
       const isUserInSchedule = (sch, userId) => {
         if (!sch || !sch.assignments) return false;
@@ -519,11 +636,16 @@
 
       const userScheduledDates = useMemo(() => {
         if (!currentUser) return [];
-        return schedules.filter(sch => isUserInSchedule(sch, currentUser.id)).map(sch => ({
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        return sortedSchedules.filter(sch => {
+          const d = new Date(`${sch.date || ''}T00:00:00`);
+          return isUserInSchedule(sch, currentUser.id) && !Number.isNaN(d.getTime()) && d >= today;
+        }).map(sch => ({
           date: sch.date,
           title: sch.title
         }));
-      }, [schedules, currentUser]);
+      }, [sortedSchedules, currentUser]);
 
       const sortedMembers = useMemo(() => {
         const roleOrder = { admin: 1, leader: 2, member: 3 };
@@ -534,12 +656,12 @@
         return (
           <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4 relative">
             {message && (
-              <div className="fixed bottom-6 left-4 right-4 sm:left-auto sm:right-6 z-50 bg-indigo-600 text-white px-4 py-3 rounded-2xl shadow-2xl border border-indigo-400 flex items-center space-x-2 animate-bounce">
+              <div className="toast-in fixed bottom-5 left-3 right-3 sm:left-auto sm:right-6 z-50 bg-indigo-600 text-white px-4 py-3 rounded-2xl shadow-2xl border border-indigo-400 flex items-center space-x-2">
                 <i data-lucide="check-circle" className="w-5 h-5 flex-shrink-0"></i>
                 <span className="font-medium text-xs md:text-sm">{message}</span>
               </div>
             )}
-            <div className="bg-slate-800 border border-slate-700 rounded-3xl w-full max-w-sm p-6 sm:p-8 shadow-2xl space-y-6">
+            <div className="glass-panel rounded-3xl w-full max-w-sm p-6 sm:p-8 shadow-2xl space-y-6">
               <div className="text-center space-y-2">
                 <div className="inline-flex bg-gradient-to-tr from-indigo-500 to-rose-500 p-3 rounded-2xl text-white shadow-lg mb-2">
                   <i data-lucide="radio" className="w-8 h-8"></i>
@@ -575,10 +697,10 @@
       }
 
       return (
-        <div className="flex flex-col md:flex-row min-h-screen bg-slate-900 text-slate-100 relative">
+        <div className="app-shell flex flex-col md:flex-row min-h-screen text-slate-100 relative">
           
           {message && (
-            <div className="fixed bottom-6 left-4 right-4 md:left-auto md:right-6 z-50 bg-indigo-600 text-white px-4 py-3 rounded-2xl shadow-2xl border border-indigo-400 flex items-center justify-between space-x-2 animate-bounce">
+            <div className={`toast-in fixed bottom-5 left-3 right-3 md:left-auto md:right-6 z-50 text-white px-4 py-3 rounded-2xl shadow-2xl border flex items-center justify-between space-x-2 ${messageType === 'error' ? 'bg-rose-600 border-rose-400' : 'bg-indigo-600 border-indigo-400'}`}>
               <div className="flex items-center space-x-2">
                 <i data-lucide="check-circle" className="w-5 h-5 flex-shrink-0"></i>
                 <span className="font-medium text-xs md:text-sm">{message}</span>
@@ -593,13 +715,13 @@
               </div>
               <span className="font-bold text-base text-white">明道直播團隊</span>
             </div>
-            <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="p-2 bg-slate-700 text-slate-200 rounded-lg">
+            <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="touch-target p-2 bg-slate-700 text-slate-200 rounded-lg">
               <i data-lucide={isMobileMenuOpen ? "x" : "menu"} className="w-5 h-5"></i>
             </button>
           </header>
 
           <aside className={`
-            fixed md:static inset-x-0 top-[53px] bottom-0 z-30 bg-slate-800 border-r border-slate-700 p-4 flex flex-col justify-between transition-transform duration-300 md:translate-x-0 w-full md:w-64
+            fixed md:static inset-x-0 top-[53px] bottom-0 z-30 bg-slate-800 border-r border-slate-700 p-4 flex flex-col justify-between transition-transform duration-300 md:translate-x-0 w-full md:w-[270px]
             ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}
           `}>
             <div>
@@ -664,8 +786,11 @@
               </button>
             </div>
           </aside>
+          {isMobileMenuOpen && (
+            <button aria-label="關閉選單" onClick={() => setIsMobileMenuOpen(false)} className="md:hidden fixed inset-0 top-[53px] z-20 bg-black/50 backdrop-blur-[2px]"></button>
+          )}
 
-          <main className="flex-1 p-3 md:p-8 overflow-y-auto custom-scrollbar space-y-4 md:space-y-6">
+          <main className="flex-1 min-w-0 p-3 sm:p-4 md:p-8 overflow-y-auto custom-scrollbar space-y-4 md:space-y-6 mobile-safe-bottom">
             
             <div className="bg-gradient-to-r from-slate-800 via-indigo-950/50 to-slate-800 border border-indigo-500/40 rounded-2xl p-3 md:p-4 flex items-center justify-between shadow-lg">
               <div className="flex items-center space-x-3">
@@ -786,7 +911,34 @@
 
             {activeTab === 'dashboard' && (
               <div className="space-y-6">
-                <div className="bg-slate-800 border border-slate-700 rounded-2xl p-4 md:p-6 shadow-md">
+                <section className="glass-panel rounded-2xl p-4 md:p-5 overflow-hidden relative">
+                  <div className="absolute -right-16 -top-20 w-48 h-48 rounded-full bg-indigo-500/10 blur-3xl pointer-events-none"></div>
+                  <div className="relative flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                    <div>
+                      <div className="flex items-center gap-2 mb-1.5">
+                        <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                        <span className="text-[10px] font-bold tracking-[.16em] text-emerald-400 uppercase">LIVE TEAM CONTROL CENTER</span>
+                      </div>
+                      <h2 className="text-xl md:text-2xl font-bold text-white tracking-tight">早安，{currentUser.name}</h2>
+                      <p className="text-xs md:text-sm text-slate-400 mt-1">掌握今天的排班、崗位與設備狀態，準備好就上場。</p>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2 sm:gap-3 lg:min-w-[360px]">
+                      <div className="bg-slate-900/70 border border-slate-700/70 rounded-xl p-3">
+                        <div className="text-[10px] text-slate-500 mb-1">排班</div>
+                        <div className="text-lg font-bold text-white">{schedules.length}</div>
+                      </div>
+                      <div className="bg-slate-900/70 border border-slate-700/70 rounded-xl p-3">
+                        <div className="text-[10px] text-slate-500 mb-1">待處理</div>
+                        <div className="text-lg font-bold text-amber-300">{swaps.filter(s => s.status === 'pending').length + repairs.filter(r => r.status === 'pending').length}</div>
+                      </div>
+                      <div className="bg-slate-900/70 border border-slate-700/70 rounded-xl p-3">
+                        <div className="text-[10px] text-slate-500 mb-1">團隊</div>
+                        <div className="text-lg font-bold text-indigo-300">{members.length}</div>
+                      </div>
+                    </div>
+                  </div>
+                </section>
+                <div className="glass-panel rounded-2xl p-4 md:p-6 shadow-md">
                   <div className="flex items-center justify-between mb-3">
                     <h3 className="text-xs md:text-sm font-semibold text-slate-300 flex items-center">
                       <i data-lucide="user-check" className="w-4 h-4 mr-1.5 text-indigo-400"></i>
@@ -826,7 +978,7 @@
                   </div>
                 </div>
 
-                <div className="bg-slate-800 border border-slate-700 rounded-2xl p-4 md:p-6 shadow-md space-y-6">
+                <div className="glass-panel rounded-2xl p-4 md:p-6 shadow-md space-y-6">
                   <div className="flex items-center justify-between pb-3 border-b border-slate-700">
                     <div>
                       <h3 className="text-base font-bold text-white flex items-center">
@@ -847,7 +999,7 @@
                       <div className="flex items-center justify-between mb-2">
                         <span className="text-xs font-bold text-indigo-400 uppercase tracking-wider flex items-center">
                           <i data-lucide="sparkles" className="w-3.5 h-3.5 mr-1 text-amber-400"></i>
-                          最近一次朝會排班
+                          下一場直播排班
                         </span>
                         <span className="text-[11px] text-rose-400 font-bold bg-rose-500/10 px-2 py-0.5 rounded-full border border-rose-500/20">即將到來</span>
                       </div>
@@ -1035,7 +1187,11 @@
                                 const { doc, setDoc } = window.FirebaseSDK;
                                 await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'repairs', rep.id), updated);
                               }
-                            } catch (err) {}
+                            } catch (err) {
+                              console.error(err);
+                              showToast('報修狀態同步失敗', 'error');
+                              return;
+                            }
                             setRepairs(prev => prev.map(r => r.id === rep.id ? updated : r));
                             showToast('報修狀態已更新！');
                           }} className="text-indigo-400 font-bold">切換狀態</button>
@@ -1145,7 +1301,7 @@
                   />
                 </div>
 
-                <div className="bg-slate-800 border border-slate-700 rounded-2xl p-4 space-y-3">
+                <div className="glass-panel rounded-2xl p-4 space-y-3">
                   {sortedMembers
                     .filter(m => m.name.toLowerCase().includes(memberSearchQuery.toLowerCase()) || m.title.toLowerCase().includes(memberSearchQuery.toLowerCase()))
                     .map(m => (
@@ -1184,7 +1340,11 @@
                                 const { doc, setDoc } = window.FirebaseSDK;
                                 await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'members', m.id), updated);
                               }
-                            } catch (err) {}
+                            } catch (err) {
+                              console.error(err);
+                              showToast('權限同步失敗，請稍後重試', 'error');
+                              return;
+                            }
                             setMembers(prev => prev.map(item => item.id === m.id ? updated : item));
                             showToast(`已更新 ${m.name} 權限`);
                           }}
@@ -1209,8 +1369,8 @@
           </main>
 
           {isSuggestionModalOpen && (
-            <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
-              <div className="bg-slate-800 border border-slate-700 rounded-2xl w-full max-w-md p-5 shadow-2xl space-y-3">
+            <div className="modal-backdrop fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4">
+              <div className="modal-card bg-slate-800 border border-slate-700 rounded-2xl w-full max-w-md p-5 shadow-2xl space-y-3">
                 <div className="flex items-center justify-between border-b border-slate-700 pb-2">
                   <h3 className="font-bold text-white text-sm">發布組長公告與建議</h3>
                   <button onClick={() => setIsSuggestionModalOpen(false)} className="text-slate-400"><i data-lucide="x" className="w-5 h-5"></i></button>
@@ -1222,7 +1382,7 @@
                   </div>
                   <div className="flex justify-end space-x-2 pt-2 border-t border-slate-700">
                     <button type="button" onClick={() => setIsSuggestionModalOpen(false)} className="px-3 py-1.5 bg-slate-700 text-slate-300 rounded-xl">取消</button>
-                    <button type="submit" className="px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-white rounded-xl font-bold">確認發布</button>
+                    <button type="submit" disabled={isSaving} className="px-3 py-1.5 bg-amber-600 hover:bg-amber-500 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl font-bold">{isSaving ? '發布中…' : '確認發布'}</button>
                   </div>
                 </form>
               </div>
@@ -1230,8 +1390,8 @@
           )}
 
           {isEditingSchedule && editingScheduleData && (
-            <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
-              <div className="bg-slate-800 border border-slate-700 rounded-2xl w-full max-w-lg p-5 shadow-2xl space-y-4 max-h-[90vh] flex flex-col">
+            <div className="modal-backdrop fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4">
+              <div className="modal-card bg-slate-800 border border-slate-700 rounded-2xl w-full max-w-2xl p-4 sm:p-5 shadow-2xl space-y-4 max-h-[92vh] flex flex-col">
                 <div className="flex items-center justify-between border-b border-slate-700 pb-3 flex-shrink-0">
                   <h3 className="font-bold text-white text-base">編輯工作人員排班 (分組/跨組調度)</h3>
                   <button onClick={() => setIsEditingSchedule(false)} className="text-slate-400 hover:text-white"><i data-lucide="x" className="w-5 h-5"></i></button>
@@ -1297,7 +1457,7 @@
 
                   <div className="flex justify-end space-x-2 pt-3 border-t border-slate-700 flex-shrink-0">
                     <button type="button" onClick={() => setIsEditingSchedule(false)} className="px-4 py-2 bg-slate-700 text-slate-300 rounded-xl">取消</button>
-                    <button type="submit" className="px-4 py-2 bg-indigo-600 text-white rounded-xl font-bold">儲存並即時同步</button>
+                    <button type="submit" disabled={isSaving} className="px-4 py-2 bg-indigo-600 text-white rounded-xl font-bold disabled:opacity-50 disabled:cursor-not-allowed">{isSaving ? '同步中…' : '儲存並即時同步'}</button>
                   </div>
                 </form>
               </div>
@@ -1305,8 +1465,8 @@
           )}
 
           {isSwapModalOpen && (
-            <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
-              <div className="bg-slate-800 border border-slate-700 rounded-2xl w-full max-w-sm p-5 shadow-2xl space-y-3">
+            <div className="modal-backdrop fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4">
+              <div className="modal-card bg-slate-800 border border-slate-700 rounded-2xl w-full max-w-sm p-5 shadow-2xl space-y-3">
                 <div className="flex items-center justify-between border-b border-slate-700 pb-2">
                   <h3 className="font-bold text-white text-sm">請假 / 換班申請</h3>
                   <button onClick={() => setIsSwapModalOpen(false)} className="text-slate-400"><i data-lucide="x" className="w-5 h-5"></i></button>
@@ -1336,7 +1496,7 @@
                   </div>
                   <div className="flex justify-end space-x-2 pt-2 border-t border-slate-700">
                     <button type="button" onClick={() => setIsSwapModalOpen(false)} className="px-3 py-1.5 bg-slate-700 text-slate-300 rounded-xl">取消</button>
-                    <button type="submit" className="px-3 py-1.5 bg-indigo-600 text-white rounded-xl">送出申請</button>
+                    <button type="submit" disabled={userScheduledDates.length === 0} className="px-3 py-1.5 bg-indigo-600 text-white rounded-xl disabled:opacity-50 disabled:cursor-not-allowed">送出申請</button>
                   </div>
                 </form>
               </div>
@@ -1344,8 +1504,8 @@
           )}
 
           {isRepairModalOpen && (
-            <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
-              <div className="bg-slate-800 border border-slate-700 rounded-2xl w-full max-w-sm p-5 shadow-2xl space-y-3">
+            <div className="modal-backdrop fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4">
+              <div className="modal-card bg-slate-800 border border-slate-700 rounded-2xl w-full max-w-sm p-5 shadow-2xl space-y-3">
                 <div className="flex items-center justify-between border-b border-slate-700 pb-2">
                   <h3 className="font-bold text-white text-sm">設備報修</h3>
                   <button onClick={() => setIsRepairModalOpen(false)} className="text-slate-400"><i data-lucide="x" className="w-5 h-5"></i></button>
@@ -1369,8 +1529,8 @@
           )}
 
           {isMemberModalOpen && (
-            <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
-              <div className="bg-slate-800 border border-slate-700 rounded-2xl w-full max-w-sm p-5 shadow-2xl space-y-3">
+            <div className="modal-backdrop fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4">
+              <div className="modal-card bg-slate-800 border border-slate-700 rounded-2xl w-full max-w-sm p-5 shadow-2xl space-y-3">
                 <div className="flex items-center justify-between border-b border-slate-700 pb-2">
                   <h3 className="font-bold text-white text-sm">
                     {isPersonalSettings ? '個人設定 (修改姓名/頭貼/密碼)' : (editingMemberData ? '編輯成員資料' : '新增成員')}
@@ -1406,7 +1566,7 @@
 
                   <div>
                     <label className="block text-slate-400 mb-1">上傳大頭貼照片檔案</label>
-                    <input type="file" accept="image/*" onChange={handleImageUpload} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-1.5 text-slate-300 text-xs file:mr-3 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-indigo-650 file:text-white hover:file:bg-indigo-500" />
+                    <input type="file" accept="image/*" onChange={handleImageUpload} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-1.5 text-slate-300 text-xs file:mr-3 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-indigo-600 file:text-white hover:file:bg-indigo-500" />
                   </div>
 
                   <div>
