@@ -1,912 +1,1445 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>明道中學直播團隊系統</title>
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Lucide Icons -->
-    <script src="https://unpkg.com/lucide@latest"></script>
-    <!-- React & React DOM -->
-    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    <!-- Babel for JSX -->
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>明道中學直播團隊系統</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- React & React DOM -->
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <!-- Babel for JSX -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
-    <!-- Firebase SDK Module Import -->
-    <script type="module">
-        import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js';
-        import { getAuth, signInAnonymously, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js';
-        import { getFirestore, collection, doc, setDoc, deleteDoc, getDoc, onSnapshot } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js';
+  <!-- Firebase SDK Module Import -->
+  <script type="module">
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js';
+    import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js';
+    import { getFirestore, collection, doc, setDoc, deleteDoc, getDoc, onSnapshot } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js';
 
-        window.FirebaseSDK = {
-            initializeApp,
-            getAuth,
-            signInAnonymously,
-            onAuthStateChanged,
-            getFirestore,
-            collection,
-            doc,
-            setDoc,
-            deleteDoc,
-            getDoc,
-            onSnapshot
-        };
-    </script>
+    window.FirebaseSDK = {
+      initializeApp,
+      getAuth,
+      signInWithCustomToken,
+      signInAnonymously,
+      onAuthStateChanged,
+      getFirestore,
+      collection,
+      doc,
+      setDoc,
+      deleteDoc,
+      getDoc,
+      onSnapshot
+    };
+  </script>
 
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap');
-        body {
-            font-family: 'Noto Sans TC', sans-serif;
-            -webkit-tap-highlight-color: transparent;
-        }
-        .custom-scrollbar::-webkit-scrollbar {
-            width: 6px;
-            height: 6px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-track {
-            background: #f1f5f9;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-            background: #cbd5e1;
-            border-radius: 3px;
-        }
-    </style>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap');
+    body {
+      font-family: 'Noto Sans TC', sans-serif;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 4px;
+      height: 4px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: #0f172a;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: #334155;
+      border-radius: 4px;
+    }
+  </style>
 </head>
-<body class="bg-slate-50 text-slate-800 antialiased min-h-screen">
-    <div id="root"></div>
+<body class="bg-slate-900 text-slate-100 min-h-screen">
+  <div id="root"></div>
 
-    <script type="text/babel">
-        const { useState, useEffect } = React;
+  <script type="text/babel">
+    const { useState, useEffect, useMemo } = React;
 
-        // Firebase 配置 (支援跨裝置同步)
-        // 若尚未填入正式 config，系統會自動啟用本地防呆與離線防護，確保所有按鈕皆可正常送出
-        const firebaseConfig = {
-            apiKey: "AIzaSyDummyKeyForMingDaoLivePortal12345",
-            authDomain: "mingdao-live-portal.firebaseapp.com",
-            projectId: "mingdao-live-portal",
-            storageBucket: "mingdao-live-portal.appspot.com",
-            messagingSenderId: "1234567890",
-            appId: "1:1234567890:web:abcdef123456"
+    const appId = typeof __app_id !== 'undefined' ? __app_id : 'live-stream-team-portal';
+    const firebaseConfig = typeof __firebase_config !== 'undefined' 
+      ? JSON.parse(__firebase_config) 
+      : { apiKey: "demo", authDomain: "demo", projectId: "demo" };
+
+    const INITIAL_MEMBERS = [
+      { id: 'm1', name: '蔡孜鵬', password: '31V714', role: 'admin', title: '總召', dept: 'admin', avatar: '' },
+      { id: 'm2', name: '洪睿頤', password: '31S441', role: 'leader', title: '導播組長', dept: 'director', avatar: '' },
+      { id: 'm3', name: '蕭宥華', password: '31S442', role: 'leader', title: 'CAM2 組長', dept: 'cam2', avatar: '' },
+      { id: 'm4', name: '陳盈融', password: '31S276', role: 'leader', title: '音控組長', dept: 'audio', avatar: '' },
+      { id: 'm10', name: '柯昱丞', password: '31S136', role: 'member', title: '導播組員', dept: 'director', avatar: '' },
+      { id: 'm5', name: '楊奕璿', password: '41S285', role: 'member', title: '導播組員', dept: 'director', avatar: '' },
+      { id: 'm6', name: '陳姿聿', password: '31V621', role: 'member', title: '音控組員', dept: 'audio', avatar: '' },
+      { id: 'm7', name: '胡永璋', password: '41S465', role: 'member', title: '音控組員', dept: 'audio', avatar: '' },
+      { id: 'm9', name: '黃芃瑀', password: '31V583', role: 'member', title: 'CAM1 攝影', dept: 'cam1', avatar: '' },
+      { id: 'm8', name: '戴士捷', password: '41V105', role: 'member', title: 'CAM2 攝影', dept: 'cam2', avatar: '' }
+    ];
+
+    const DUTY_ROLES = [
+      { key: 'director', label: '導播', deptKey: 'director', icon: 'tv' },
+      { key: 'audio', label: '音控', deptKey: 'audio', icon: 'sliders' },
+      { key: 'cam1', label: 'CAM1 攝影', deptKey: 'cam1', icon: 'camera' },
+      { key: 'cam2', label: 'CAM2 攝影', deptKey: 'cam2', icon: 'video' },
+      { key: 'slides', label: '簡報/字卡', deptKey: 'slides', icon: 'file-text' }
+    ];
+
+    // 需求 1：完全不要有任何預設班表
+    const INITIAL_SCHEDULES = [];
+
+    const INITIAL_SOP = {
+      director: { title: '導播 SOP', items: ['07:20 前抵達導播室，開啟總電源與 OBS', '測試畫面切換'] },
+      audio: { title: '音控 SOP', items: ['07:25 開啟混音器與麥克風', '檢查電池電量'] },
+      cam1: { title: 'CAM1 SOP', items: ['設置於中央平台，調整水平儀'] },
+      cam2: { title: 'CAM2 SOP', items: ['設置側邊特寫角度'] },
+      slides: { title: '簡報 SOP', items: ['確認今日朝會 PPT 與名單'] }
+    };
+
+    function App() {
+      const [db, setDb] = useState(null);
+      const [authUser, setAuthUser] = useState(null);
+
+      const [currentUser, setCurrentUser] = useState(null);
+      const [loginPassword, setLoginPassword] = useState('');
+      const [loginError, setLoginError] = useState('');
+
+      const [members, setMembers] = useState(INITIAL_MEMBERS);
+      const [schedules, setSchedules] = useState(INITIAL_SCHEDULES);
+      const [repairs, setRepairs] = useState([]);
+      const [swaps, setSwaps] = useState([]);
+      const [announcement, setAnnouncement] = useState('📢 請全體成員於朝會前 10 分鐘完成所有設備校正！');
+      const [leaderSuggestions, setLeaderSuggestions] = useState([]); 
+      const [sopData, setSopData] = useState(INITIAL_SOP);
+
+      const [activeTab, setActiveTab] = useState('dashboard');
+      const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+      const [isEditingSchedule, setIsEditingSchedule] = useState(false);
+      const [editingScheduleData, setEditingScheduleData] = useState(null);
+      const [showAllForRole, setShowAllForRole] = useState({});
+
+      const [isSwapModalOpen, setIsSwapModalOpen] = useState(false);
+      const [isRepairModalOpen, setIsRepairModalOpen] = useState(false);
+      const [isSuggestionModalOpen, setIsSuggestionModalOpen] = useState(false);
+
+      const [isMemberModalOpen, setIsMemberModalOpen] = useState(false);
+      const [editingMemberData, setEditingMemberData] = useState(null);
+      const [isPersonalSettings, setIsPersonalSettings] = useState(false);
+
+      const [avatarBase64, setAvatarBase64] = useState('');
+
+      const [editingSopKey, setEditingSopKey] = useState(null);
+      const [editingSopContent, setEditingSopContent] = useState('');
+
+      const [memberSearchQuery, setMemberSearchQuery] = useState('');
+      const [message, setMessage] = useState(null);
+
+      const showToast = (txt) => {
+        setMessage(txt);
+        setTimeout(() => setMessage(null), 3000);
+      };
+
+      useEffect(() => {
+        if (!window.FirebaseSDK) return;
+        const { initializeApp, getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged, getFirestore } = window.FirebaseSDK;
+        try {
+          const app = initializeApp(firebaseConfig);
+          const auth = getAuth(app);
+          const firestore = getFirestore(app);
+          setDb(firestore);
+
+          const initAuth = async () => {
+            try {
+              if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                await signInWithCustomToken(auth, __initial_auth_token);
+              } else {
+                await signInAnonymously(auth);
+              }
+            } catch (e) {
+              console.warn("Auth fallback:", e);
+            }
+          };
+          initAuth();
+          const unsubscribe = onAuthStateChanged(auth, (usr) => setAuthUser(usr));
+          return () => unsubscribe();
+        } catch (err) {
+          console.error(err);
+        }
+      }, []);
+
+      // 需求 3：支援跨裝置即時同步 (onSnapshot)
+      useEffect(() => {
+        if (!db) return;
+        const { collection, onSnapshot, doc } = window.FirebaseSDK;
+
+        const schedulesRef = collection(db, 'artifacts', appId, 'public', 'data', 'schedules');
+        const annRef = collection(db, 'artifacts', appId, 'public', 'data', 'announcements');
+        const suggestionsRef = collection(db, 'artifacts', appId, 'public', 'data', 'suggestions');
+        const repairsRef = collection(db, 'artifacts', appId, 'public', 'data', 'repairs');
+        const swapsRef = collection(db, 'artifacts', appId, 'public', 'data', 'swaps');
+        const membersRef = collection(db, 'artifacts', appId, 'public', 'data', 'members');
+        const sopRef = collection(db, 'artifacts', appId, 'public', 'data', 'sops');
+
+        const unsubs = [];
+
+        // 班表即時監聽（不強制寫入預設班表）
+        unsubs.push(onSnapshot(schedulesRef, (snapshot) => {
+          const list = snapshot.docs.map(d => d.data());
+          list.sort((a, b) => new Date(a.date) - new Date(b.date));
+          setSchedules(list);
+        }, (err) => console.log("Schedules listener error:", err)));
+
+        // 成員即時監聽
+        unsubs.push(onSnapshot(membersRef, (snapshot) => {
+          if (!snapshot.empty) {
+            const list = snapshot.docs.map(d => d.data());
+            setMembers(list);
+            setCurrentUser(prev => prev ? list.find(m => m.id === prev.id) || prev : null);
+          }
+        }, (err) => console.log("Members listener error:", err)));
+
+        // 公告即時監聽
+        unsubs.push(onSnapshot(doc(annRef, 'main'), (snap) => {
+          if (snap.exists() && snap.data().text) {
+            setAnnouncement(snap.data().text);
+          }
+        }, (err) => {} ));
+
+        // SOP 即時監聽
+        unsubs.push(onSnapshot(doc(sopRef, 'main'), (snap) => {
+          if (snap.exists() && snap.data().content) {
+            setSopData(snap.data().content);
+          }
+        }, (err) => {} ));
+
+        // 建議即時監聽
+        unsubs.push(onSnapshot(suggestionsRef, (snapshot) => {
+          const list = snapshot.docs.map(d => d.data());
+          list.sort((a, b) => b.timestamp - a.timestamp);
+          setLeaderSuggestions(list);
+        }, (err) => {} ));
+
+        // 報修即時監聽
+        unsubs.push(onSnapshot(repairsRef, (snapshot) => {
+          setRepairs(snapshot.docs.map(d => d.data()));
+        }, (err) => {} ));
+
+        // 換班即時監聽
+        unsubs.push(onSnapshot(swapsRef, (snapshot) => {
+          setSwaps(snapshot.docs.map(d => d.data()));
+        }, (err) => {} ));
+
+        return () => unsubs.forEach(unsub => unsub());
+      }, [db]);
+
+      useEffect(() => {
+        if (window.lucide) {
+          try { window.lucide.createIcons(); } catch(err) {}
+        }
+      });
+
+      const handleLogin = (e) => {
+        e.preventDefault();
+        setLoginError('');
+        const foundMember = members.find(m => m.password.toLowerCase() === loginPassword.trim().toLowerCase());
+        if (foundMember) {
+          setCurrentUser(foundMember);
+          setLoginPassword('');
+          showToast(`歡迎回來，${foundMember.name}！`);
+        } else {
+          setLoginError('密碼錯誤，請重新確認');
+        }
+      };
+
+      const handleLogout = () => {
+        setCurrentUser(null);
+        showToast('已安全登出');
+      };
+
+      const handleImageUpload = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            setAvatarBase64(reader.result);
+          };
+          reader.readAsDataURL(file);
+        }
+      };
+
+      // 需求 2：確保所有送出功能帶有容錯處理，保證必能寫入與送出
+      const handlePostSuggestion = async (e) => {
+        e.preventDefault();
+        const formData = new FormData(e.target);
+        const sugObj = {
+          id: `sug-${Date.now()}`,
+          authorId: currentUser.id,
+          authorName: currentUser.name,
+          authorTitle: currentUser.title,
+          content: formData.get('content'),
+          timestamp: Date.now()
         };
-
-        let db = null;
-        let auth = null;
-        let isFirebaseConnected = false;
 
         try {
-            if (window.FirebaseSDK && window.FirebaseSDK.initializeApp) {
-                const app = window.FirebaseSDK.initializeApp(firebaseConfig);
-                db = window.FirebaseSDK.getFirestore(app);
-                auth = window.FirebaseSDK.getAuth(app);
-                isFirebaseConnected = true;
+          if (db) {
+            const { doc, setDoc } = window.FirebaseSDK;
+            await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'suggestions', sugObj.id), sugObj);
+          }
+        } catch (err) {
+          console.error("Firebase write error:", err);
+        }
+        setLeaderSuggestions(prev => [sugObj, ...prev]);
+        showToast('組長公告/建議已發布！');
+        setIsSuggestionModalOpen(false);
+      };
+
+      const handleDeleteSuggestion = async (sugId) => {
+        if (confirm('確定要刪除這則公告/建議嗎？')) {
+          try {
+            if (db) {
+              const { doc, deleteDoc } = window.FirebaseSDK;
+              await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'suggestions', sugId));
             }
-        } catch (e) {
-            console.warn("Firebase initialization warning (running in standalone mode):", e);
+          } catch (err) {}
+          setLeaderSuggestions(prev => prev.filter(s => s.id !== sugId));
+          showToast('已刪除公告');
+        }
+      };
+
+      const handleSaveSop = async (roleKey) => {
+        const lines = editingSopContent.split('\n').filter(l => l.trim() !== '');
+        const updatedSop = {
+          ...sopData,
+          [roleKey]: {
+            ...sopData[roleKey],
+            items: lines
+          }
+        };
+
+        try {
+          if (db) {
+            const { doc, setDoc } = window.FirebaseSDK;
+            await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'sops', 'main'), { content: updatedSop });
+          }
+        } catch (err) {}
+        setSopData(updatedSop);
+        showToast('SOP 已成功更新！');
+        setEditingSopKey(null);
+      };
+
+      const handleOpenScheduleModal = (sch = null) => {
+        if (sch) setEditingScheduleData(JSON.parse(JSON.stringify(sch)));
+        else {
+          setEditingScheduleData({
+            id: `sch-${Date.now()}`,
+            date: new Date().toISOString().split('T')[0],
+            title: '新朝會排班',
+            time: '07:30 - 08:20',
+            assignments: { director: [], audio: [], cam1: [], cam2: [], slides: [] }
+          });
+        }
+        setShowAllForRole({});
+        setIsEditingSchedule(true);
+      };
+
+      const handleToggleMemberAssignment = (roleKey, memberId) => {
+        if (!editingScheduleData) return;
+        setEditingScheduleData(prev => {
+          if (!prev) return null;
+          const assignments = prev.assignments || {};
+          const currentList = Array.isArray(assignments[roleKey]) ? assignments[roleKey] : [];
+          const isAssigned = currentList.includes(memberId);
+          const newList = isAssigned ? currentList.filter(id => id !== memberId) : [...currentList, memberId];
+          return { ...prev, assignments: { ...assignments, [roleKey]: newList } };
+        });
+      };
+
+      const handleSaveScheduleSubmit = async (e) => {
+        e.preventDefault();
+        if (!editingScheduleData) return;
+        try {
+          if (db) {
+            const { doc, setDoc } = window.FirebaseSDK;
+            await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'schedules', editingScheduleData.id), editingScheduleData);
+          }
+        } catch (err) {
+          console.error(err);
+        }
+        setSchedules(prev => {
+          const exists = prev.some(s => s.id === editingScheduleData.id);
+          const updated = exists ? prev.map(s => s.id === editingScheduleData.id ? editingScheduleData : s) : [...prev, editingScheduleData];
+          return updated.sort((a, b) => new Date(a.date) - new Date(b.date));
+        });
+        showToast('班表已儲存並即時同步！');
+        setIsEditingSchedule(false);
+        setEditingScheduleData(null);
+      };
+
+      const handleUpdateAnnouncement = async () => {
+        const newAnn = prompt('編輯主要公告：', announcement);
+        if (newAnn !== null) {
+          try {
+            if (db) {
+              const { doc, setDoc } = window.FirebaseSDK;
+              await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'announcements', 'main'), { text: newAnn });
+            }
+          } catch (err) {}
+          setAnnouncement(newAnn);
+          showToast('公告已廣播！');
+        }
+      };
+
+      const handleRequestSwap = async (e) => {
+        e.preventDefault();
+        const formData = new FormData(e.target);
+        const newSwap = {
+          id: `sw-${Date.now()}`,
+          requester: currentUser.name,
+          targetDate: formData.get('targetDate'),
+          roleLabel: formData.get('roleLabel'),
+          reason: formData.get('reason'),
+          status: 'pending'
+        };
+        try {
+          if (db) {
+            const { doc, setDoc } = window.FirebaseSDK;
+            await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'swaps', newSwap.id), newSwap);
+          }
+        } catch (err) {}
+        setSwaps(prev => [newSwap, ...prev]);
+        showToast('請假/換班申請已送出！');
+        setIsSwapModelOpen(false);
+      };
+
+      const handleUpdateSwapStatus = async (swapId, newStatus) => {
+        const targetSwap = swaps.find(s => s.id === swapId);
+        if (!targetSwap) return;
+        const updated = { ...targetSwap, status: newStatus };
+        try {
+          if (db) {
+            const { doc, setDoc } = window.FirebaseSDK;
+            await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'swaps', swapId), updated);
+          }
+        } catch (err) {}
+        setSwaps(prev => prev.map(s => s.id === swapId ? updated : s));
+        showToast(`已${newStatus === 'approved' ? '核准' : '駁回'}該請假申請！`);
+      };
+
+      const handleReportRepair = async (e) => {
+        e.preventDefault();
+        const formData = new FormData(e.target);
+        const newRepair = {
+          id: `r-${Date.now()}`,
+          item: formData.get('item'),
+          reporter: currentUser.name,
+          date: new Date().toISOString().split('T')[0],
+          issue: formData.get('issue'),
+          status: 'pending'
+        };
+        try {
+          if (db) {
+            const { doc, setDoc } = window.FirebaseSDK;
+            await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'repairs', newRepair.id), newRepair);
+          }
+        } catch (err) {}
+        setRepairs(prev => [newRepair, ...prev]);
+        showToast('報修單已提交！');
+        setIsRepairModalOpen(false);
+      };
+
+      const handleSaveMemberSubmit = async (e) => {
+        e.preventDefault();
+        const formData = new FormData(e.target);
+        const finalAvatar = avatarBase64 || (editingMemberData ? editingMemberData.avatar : '');
+
+        let memberObj;
+        if (isPersonalSettings) {
+          memberObj = {
+            ...currentUser,
+            name: formData.get('name'),
+            password: formData.get('password'),
+            avatar: finalAvatar
+          };
+        } else {
+          memberObj = {
+            id: editingMemberData ? editingMemberData.id : `m-${Date.now()}`,
+            name: formData.get('name'),
+            password: formData.get('password'),
+            role: formData.get('role'),
+            title: formData.get('title'),
+            dept: formData.get('dept'),
+            avatar: finalAvatar
+          };
         }
 
-        function App() {
-            const [currentTab, setCurrentTab] = useState('schedule');
-            const [userRole, setUserRole] = useState('admin'); // 'admin' (總召), 'leader' (組長), 'member' (組員)
-            const [currentUser, setCurrentUser] = useState('蔡孜鵬 (總召)');
-            
-            // 資料狀態 (完全無預設班表)
-            const [schedules, setSchedules] = useState([]);
-            const [announcements, setAnnouncements] = useState([
-                { id: '1', title: '系統啟用公告', content: '明道中學直播團隊管理系統已正式上線，請各組員確實配合排班與請假規範。', date: '2026-03-01', author: '總召' }
-            ]);
-            const [leaveRequests, setLeaveRequests] = useState([]);
-            const [repairs, setRepairs] = useState([]);
-            
-            // 彈窗與互動狀態
-            const [showScheduleModal, setShowScheduleModal] = useState(false);
-            const [showAnnouncementModal, setShowAnnouncementModal] = useState(false);
-            const [showLeaveModal, setShowLeaveModal] = useState(false);
-            const [showRepairModal, setShowRepairModal] = useState(false);
-            const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, title: '', message: '', onConfirm: null });
-            const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
+        try {
+          if (db) {
+            const { doc, setDoc } = window.FirebaseSDK;
+            await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'members', memberObj.id), memberObj);
+          }
+        } catch (err) {}
 
-            // 新增班表表單狀態
-            const [newSchedule, setNewSchedule] = useState({
-                title: '',
-                date: '',
-                time: '',
-                location: '',
-                director: '',
-                cameraman: '',
-                audio: '',
-                switcher: ''
-            });
+        setMembers(prev => {
+          const exists = prev.some(m => m.id === memberObj.id);
+          return exists ? prev.map(m => m.id === memberObj.id ? memberObj : m) : [...prev, memberObj];
+        });
+        if (isPersonalSettings) {
+          setCurrentUser(memberObj);
+        }
+        showToast('資料已成功更新！');
+        setIsMemberModalOpen(false);
+        setEditingMemberData(null);
+        setIsPersonalSettings(false);
+        setAvatarBase64('');
+      };
 
-            // 新增公告表單
-            const [newAnnouncement, setNewAnnouncement] = useState({ title: '', content: '' });
-            // 請假表單
-            const [newLeave, setNewLeave] = useState({ reason: '', date: '', substitute: '' });
-            // 報修表單
-            const [newRepair, setNewRepair] = useState({ equipment: '', issue: '', urgency: '普通' });
+      const handleDeleteMember = async (memberId, memberName) => {
+        if (confirm(`確定要刪除成員【${memberName}】嗎？`)) {
+          try {
+            if (db) {
+              const { doc, deleteDoc } = window.FirebaseSDK;
+              await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'members', memberId));
+            }
+          } catch (err) {}
+          setMembers(prev => prev.filter(m => m.id !== memberId));
+          showToast(`已刪除：${memberName}`);
+        }
+      };
 
-            const showToast = (message, type = 'success') => {
-                setToast({ show: true, message, type });
-                setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 3000);
-            };
+      const latestSchedule = useMemo(() => schedules[0] || null, [schedules]);
+      const upcomingSchedules = useMemo(() => schedules.slice(1), [schedules]);
 
-            // Firebase 實時同步監聽
-            useEffect(() => {
-                if (!isFirebaseConnected || !db) return;
-                try {
-                    // 匿名登入以確保權限
-                    window.FirebaseSDK.signInAnonymously(auth).catch(err => console.log("Auth notice:", err));
+      const isUserInSchedule = (sch, userId) => {
+        if (!sch || !sch.assignments) return false;
+        return Object.values(sch.assignments).some(memberIds => Array.isArray(memberIds) && memberIds.includes(userId));
+      };
 
-                    // 監聽排班
-                    const unsubSchedules = window.FirebaseSDK.onSnapshot(
-                        window.FirebaseSDK.collection(db, 'schedules'),
-                        (snapshot) => {
-                            const list = [];
-                            snapshot.forEach(doc => list.push({ id: doc.id, ...doc.data() }));
-                            if (list.length > 0) setSchedules(list);
-                        },
-                        (err) => console.log("Schedules sync offline fallback")
-                    );
+      const userScheduledDates = useMemo(() => {
+        if (!currentUser) return [];
+        return schedules.filter(sch => isUserInSchedule(sch, currentUser.id)).map(sch => ({
+          date: sch.date,
+          title: sch.title
+        }));
+      }, [schedules, currentUser]);
 
-                    // 監聽請假
-                    const unsubLeaves = window.FirebaseSDK.onSnapshot(
-                        window.FirebaseSDK.collection(db, 'leaveRequests'),
-                        (snapshot) => {
-                            const list = [];
-                            snapshot.forEach(doc => list.push({ id: doc.id, ...doc.data() }));
-                            if (list.length > 0) setLeaveRequests(list);
-                        },
-                        (err) => console.log("Leaves sync offline fallback")
-                    );
+      const sortedMembers = useMemo(() => {
+        const roleOrder = { admin: 1, leader: 2, member: 3 };
+        return [...members].sort((a, b) => (roleOrder[a.role] || 3) - (roleOrder[b.role] || 3));
+      }, [members]);
 
-                    // 監聽報修
-                    const unsubRepairs = window.FirebaseSDK.onSnapshot(
-                        window.FirebaseSDK.collection(db, 'repairs'),
-                        (snapshot) => {
-                            const list = [];
-                            snapshot.forEach(doc => list.push({ id: doc.id, ...doc.data() }));
-                            if (list.length > 0) setRepairs(list);
-                        },
-                        (err) => console.log("Repairs sync offline fallback")
-                    );
-
-                    return () => {
-                        unsubSchedules && unsubSchedules();
-                        unsubLeaves && unsubLeaves();
-                        unsubRepairs && unsubRepairs();
-                    };
-                } catch (e) {
-                    console.error("Firebase sync error:", e);
-                }
-            }, []);
-
-            // 1. 新增班表 (僅總召 admin 可操作)
-            const handleCreateSchedule = async (e) => {
-                e.preventDefault();
-                if (!newSchedule.title || !newSchedule.date || !newSchedule.time) {
-                    showToast('請填寫完整直播主題、日期與時間！', 'error');
-                    return;
-                }
-
-                const scheduleId = 'sch_' + Date.now();
-                const scheduleData = {
-                    id: scheduleId,
-                    ...newSchedule,
-                    createdAt: new Date().toISOString()
-                };
-
-                // 本地更新確保立即反應
-                const updated = [scheduleData, ...schedules];
-                setSchedules(updated);
-
-                // 嘗試寫入 Firebase 雲端同步
-                if (isFirebaseConnected && db) {
-                    try {
-                        await window.FirebaseSDK.setDoc(window.FirebaseSDK.doc(db, 'schedules', scheduleId), scheduleData);
-                    } catch (err) {
-                        console.error("Cloud sync error, saved locally:", err);
-                    }
-                }
-
-                setNewSchedule({ title: '', date: '', time: '', location: '', director: '', cameraman: '', audio: '', switcher: '' });
-                setShowScheduleModal(false);
-                showToast('成功新增排班！');
-            };
-
-            // 2. 刪除班表 (僅總召 admin 可操作)
-            const handleDeleteSchedule = (id) => {
-                setConfirmDialog({
-                    isOpen: true,
-                    title: '確認刪除班表',
-                    message: '您確定要永久刪除此筆直播排班嗎？此動作無法復原。',
-                    onConfirm: async () => {
-                        const updated = schedules.filter(s => s.id !== id);
-                        setSchedules(updated);
-
-                        if (isFirebaseConnected && db) {
-                            try {
-                                await window.FirebaseSDK.deleteDoc(window.FirebaseSDK.doc(db, 'schedules', id));
-                            } catch (err) {
-                                console.error("Cloud delete error:", err);
-                            }
-                        }
-                        setConfirmDialog({ isOpen: false, title: '', message: '', onConfirm: null });
-                        showToast('已成功刪除排班');
-                    }
-                });
-            };
-
-            // 3. 提交請假申請
-            const handleSubmitLeave = async (e) => {
-                e.preventDefault();
-                if (!newLeave.reason || !newLeave.date) {
-                    showToast('請填寫請假日期與原因！', 'error');
-                    return;
-                }
-
-                const leaveId = 'leave_' + Date.now();
-                const leaveData = {
-                    id: leaveId,
-                    ...newLeave,
-                    applicant: currentUser,
-                    status: '審核中',
-                    createdAt: new Date().toISOString()
-                };
-
-                setLeaveRequests([leaveData, ...leaveRequests]);
-
-                if (isFirebaseConnected && db) {
-                    try {
-                        await window.FirebaseSDK.setDoc(window.FirebaseSDK.doc(db, 'leaveRequests', leaveId), leaveData);
-                    } catch (err) {
-                        console.error("Cloud leave sync error:", err);
-                    }
-                }
-
-                setNewLeave({ reason: '', date: '', substitute: '' });
-                setShowLeaveModal(false);
-                showToast('請假申請已送出，等待總召/組長審核！');
-            };
-
-            // 4. 提交設備報修
-            const handleSubmitRepair = async (e) => {
-                e.preventDefault();
-                if (!newRepair.equipment || !newRepair.issue) {
-                    showToast('請填寫設備名稱與狀況描述！', 'error');
-                    return;
-                }
-
-                const repairId = 'rep_' + Date.now();
-                const repairData = {
-                    id: repairId,
-                    ...newRepair,
-                    reporter: currentUser,
-                    status: '待處理',
-                    createdAt: new Date().toISOString()
-                };
-
-                setRepairs([repairData, ...repairs]);
-
-                if (isFirebaseConnected && db) {
-                    try {
-                        await window.FirebaseSDK.setDoc(window.FirebaseSDK.doc(db, 'repairs', repairId), repairData);
-                    } catch (err) {
-                        console.error("Cloud repair sync error:", err);
-                    }
-                }
-
-                setNewRepair({ equipment: '', issue: '', urgency: '普通' });
-                setShowRepairModal(false);
-                showToast('設備報修單已成功送出！');
-            };
-
-            return (
-                <div className="min-h-screen flex flex-col bg-slate-50 pb-12">
-                    {/* Toast 提示通知 */}
-                    {toast.show && (
-                        <div className="fixed top-5 right-5 z-50 bg-slate-900 text-white px-5 py-3 rounded-xl shadow-xl flex items-center space-x-3 border border-slate-700 transition-all animate-bounce">
-                            <i data-lucide={toast.type === 'error' ? 'alert-circle' : 'check-circle-2'} className={`w-5 h-5 ${toast.type === 'error' ? 'text-red-400' : 'text-emerald-400'}`}></i>
-                            <span className="text-sm font-medium">{toast.message}</span>
-                        </div>
-                    )}
-
-                    {/* 自訂確認彈窗 */}
-                    {confirmDialog.isOpen && (
-                        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
-                            <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-100">
-                                <h3 className="text-lg font-bold text-slate-900 mb-2">{confirmDialog.title}</h3>
-                                <p className="text-sm text-slate-600 mb-6">{confirmDialog.message}</p>
-                                <div className="flex justify-end space-x-3">
-                                    <button 
-                                        onClick={() => setConfirmDialog({ isOpen: false, title: '', message: '', onConfirm: null })}
-                                        className="px-4 py-2 text-sm font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition">
-                                        取消
-                                    </button>
-                                    <button 
-                                        onClick={confirmDialog.onConfirm}
-                                        className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-xl shadow-md transition">
-                                        確定刪除
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* 頂部導航列 */}
-                    <header className="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
-                        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-                            <div className="flex items-center space-x-3">
-                                <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-md shadow-blue-500/20">
-                                    <i data-lucide="video" className="w-5 h-5"></i>
-                                </div>
-                                <div>
-                                    <h1 className="text-lg font-bold text-slate-900 leading-none">明道中學直播團隊 Portal</h1>
-                                    <span className="text-xs text-emerald-600 font-semibold flex items-center mt-1">
-                                        <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block mr-1.5 animate-pulse"></span>
-                                        雲端即時同步已啟動
-                                    </span>
-                                </div>
-                            </div>
-
-                            {/* 身分切換器 (方便測試總召/組長/組員權限) */}
-                            <div className="flex items-center space-x-2 bg-slate-100 p-1.5 rounded-xl border border-slate-200">
-                                <span className="text-xs font-bold text-slate-500 px-2 hidden sm:inline">身分模擬:</span>
-                                <select 
-                                    value={userRole} 
-                                    onChange={(e) => {
-                                        setUserRole(e.target.value);
-                                        if(e.target.value === 'admin') setCurrentUser('蔡孜鵬 (總召)');
-                                        else if(e.target.value === 'leader') setCurrentUser('張組長 (導播組)');
-                                        else setCurrentUser('王小明 (組員)');
-                                    }}
-                                    className="bg-white text-xs font-bold text-slate-700 py-1.5 px-3 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm">
-                                    <option value="admin">總召 (最高權限)</option>
-                                    <option value="leader">組長 (幹部權限)</option>
-                                    <option value="member">一般組員</option>
-                                </select>
-                            </div>
-                        </div>
-                    </header>
-
-                    {/* 主內容區 */}
-                    <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1 w-full">
-                        {/* 導覽頁籤 */}
-                        <div className="flex space-x-2 border-b border-slate-200 pb-4 mb-6 overflow-x-auto custom-scrollbar">
-                            <button 
-                                onClick={() => setCurrentTab('schedule')}
-                                className={`flex items-center space-x-2 px-4 py-2.5 rounded-xl font-medium text-sm transition whitespace-nowrap ${currentTab === 'schedule' ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20' : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'}`}>
-                                <i data-lucide="calendar" className="w-4 h-4"></i>
-                                <span>直播排班調度</span>
-                            </button>
-                            <button 
-                                onClick={() => setCurrentTab('announcement')}
-                                className={`flex items-center space-x-2 px-4 py-2.5 rounded-xl font-medium text-sm transition whitespace-nowrap ${currentTab === 'announcement' ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20' : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'}`}>
-                                <i data-lucide="bell" className="w-4 h-4"></i>
-                                <span>團隊公告與 SOP</span>
-                            </button>
-                            <button 
-                                onClick={() => setCurrentTab('leave')}
-                                className={`flex items-center space-x-2 px-4 py-2.5 rounded-xl font-medium text-sm transition whitespace-nowrap ${currentTab === 'leave' ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20' : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'}`}>
-                                <i data-lucide="file-text" className="w-4 h-4"></i>
-                                <span>請假與換班審核</span>
-                            </button>
-                            <button 
-                                onClick={() => setCurrentTab('repair')}
-                                className={`flex items-center space-x-2 px-4 py-2.5 rounded-xl font-medium text-sm transition whitespace-nowrap ${currentTab === 'repair' ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20' : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'}`}>
-                                <i data-lucide="tool" className="w-4 h-4"></i>
-                                <span>設備報修系統</span>
-                            </button>
-                        </div>
-
-                        {/* 1. 直播排班調度頁籤 */}
-                        {currentTab === 'schedule' && (
-                            <div className="space-y-6">
-                                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                                    <div>
-                                        <h2 className="text-xl font-bold text-slate-900">近期直播排班表</h2>
-                                        <p className="text-sm text-slate-500">所有排班與崗位指派即時跨裝置同步</p>
-                                    </div>
-                                    {/* 僅總召 (admin) 才可以新增班表 */}
-                                    {userRole === 'admin' ? (
-                                        <button 
-                                            onClick={() => setShowScheduleModal(true)}
-                                            className="inline-flex items-center justify-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-2.5 rounded-xl shadow-md shadow-blue-500/20 transition">
-                                            <i data-lucide="plus" className="w-4 h-4"></i>
-                                            <span>新增班表</span>
-                                        </button>
-                                    ) : (
-                                        <div className="text-xs text-amber-600 bg-amber-50 px-3 py-2 rounded-xl border border-amber-200 flex items-center space-x-1.5">
-                                            <i data-lucide="shield-alert" className="w-4 h-4"></i>
-                                            <span>提示：目前為非總召身分，僅總召可新增或刪除排班</span>
-                                        </div>
-                                    )}
-                                </div>
-
-                                {schedules.length === 0 ? (
-                                    <div className="bg-white rounded-2xl p-12 text-center border border-slate-200 shadow-sm">
-                                        <div className="w-16 h-16 bg-blue-50 text-blue-500 rounded-full flex items-center justify-center mx-auto mb-4">
-                                            <i data-lucide="calendar-off" className="w-8 h-8"></i>
-                                        </div>
-                                        <h3 className="text-lg font-bold text-slate-800 mb-1">目前尚無任何直播排班</h3>
-                                        <p className="text-sm text-slate-500 mb-6">點擊上方「新增班表」按鈕來建立第一個直播排班任務吧！</p>
-                                    </div>
-                                ) : (
-                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                        {schedules.map((sch) => (
-                                            <div key={sch.id} className="bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition p-6 flex flex-col justify-between">
-                                                <div>
-                                                    <div className="flex items-start justify-between mb-3">
-                                                        <span className="bg-blue-50 text-blue-700 text-xs font-bold px-3 py-1 rounded-lg border border-blue-100">
-                                                            {sch.date}
-                                                        </span>
-                                                        <span className="text-xs font-semibold text-slate-500 flex items-center">
-                                                            <i data-lucide="clock" className="w-3.5 h-3.5 mr-1 text-slate-400"></i>
-                                                            {sch.time}
-                                                        </span>
-                                                    </div>
-                                                    <h3 className="text-lg font-bold text-slate-900 mb-2">{sch.title}</h3>
-                                                    <p className="text-xs text-slate-500 flex items-center mb-4">
-                                                        <i data-lucide="map-pin" className="w-3.5 h-3.5 mr-1 text-slate-400"></i>
-                                                        地點：{sch.location || '校內直播室'}
-                                                    </p>
-
-                                                    <div className="bg-slate-50 rounded-xl p-3.5 space-y-2 mb-4 text-xs border border-slate-100">
-                                                        <div className="flex justify-between">
-                                                            <span className="text-slate-500 font-medium">總導播:</span>
-                                                            <span className="font-bold text-slate-800">{sch.director || '未指派'}</span>
-                                                        </div>
-                                                        <div className="flex justify-between">
-                                                            <span className="text-slate-500 font-medium">攝影師:</span>
-                                                            <span className="font-bold text-slate-800">{sch.cameraman || '未指派'}</span>
-                                                        </div>
-                                                        <div className="flex justify-between">
-                                                            <span className="text-slate-500 font-medium">音控:</span>
-                                                            <span className="font-bold text-slate-800">{sch.audio || '未指派'}</span>
-                                                        </div>
-                                                        <div className="flex justify-between">
-                                                            <span className="text-slate-500 font-medium">切換手:</span>
-                                                            <span className="font-bold text-slate-800">{sch.switcher || '未指派'}</span>
-                                                        </div>
-                                                    </div>
-                                                </div>
-
-                                                <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
-                                                    <span className="text-xs text-emerald-600 font-medium flex items-center">
-                                                        <i data-lucide="check-circle-2" className="w-3.5 h-3.5 mr-1"></i>
-                                                        排班已確認
-                                                    </span>
-                                                    {userRole === 'admin' && (
-                                                        <button 
-                                                            onClick={() => handleDeleteSchedule(sch.id)}
-                                                            className="text-xs text-red-600 hover:text-red-700 font-medium flex items-center bg-red-50 hover:bg-red-100 px-2.5 py-1 rounded-lg transition">
-                                                            <i data-lucide="trash-2" className="w-3 h-3 mr-1"></i>
-                                                            刪除班表
-                                                        </button>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-                        )}
-
-                        {/* 2. 公告與 SOP 頁籤 */}
-                        {currentTab === 'announcement' && (
-                            <div className="space-y-6">
-                                <div className="flex items-center justify-between">
-                                    <div>
-                                        <h2 className="text-xl font-bold text-slate-900">團隊公告與標準作業規範 (SOP)</h2>
-                                        <p className="text-sm text-slate-500">重要佈達與直播設備操作守則</p>
-                                    </div>
-                                    {userRole === 'admin' && (
-                                        <button 
-                                            onClick={() => setShowAnnouncementModal(true)}
-                                            className="inline-flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-2.5 rounded-xl shadow-md transition">
-                                            <i data-lucide="plus" className="w-4 h-4"></i>
-                                            <span>發布公告</span>
-                                        </button>
-                                    )}
-                                </div>
-
-                                <div className="space-y-4">
-                                    {announcements.map((item, idx) => (
-                                        <div key={idx} className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
-                                            <div className="flex items-center justify-between mb-2">
-                                                <h3 className="text-base font-bold text-slate-900">{item.title}</h3>
-                                                <span className="text-xs text-slate-400">{item.date}</span>
-                                            </div>
-                                            <p className="text-sm text-slate-600 leading-relaxed mb-4">{item.content}</p>
-                                            <div className="flex items-center text-xs text-slate-400 font-medium">
-                                                <i data-lucide="user-check" className="w-3.5 h-3.5 mr-1 text-blue-500"></i>
-                                                發布者：{item.author || '總召'}
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-
-                        {/* 3. 請假與換班審核頁籤 */}
-                        {currentTab === 'leave' && (
-                            <div className="space-y-6">
-                                <div className="flex items-center justify-between">
-                                    <div>
-                                        <h2 className="text-xl font-bold text-slate-900">請假與換班申請</h2>
-                                        <p className="text-sm text-slate-500">提交請假並指派職務代理人</p>
-                                    </div>
-                                    <button 
-                                        onClick={() => setShowLeaveModal(true)}
-                                        className="inline-flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-2.5 rounded-xl shadow-md transition">
-                                        <i data-lucide="plus" className="w-4 h-4"></i>
-                                        <span>提出請假申請</span>
-                                    </button>
-                                </div>
-
-                                <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
-                                    {leaveRequests.length === 0 ? (
-                                        <div className="p-12 text-center text-slate-400">目前沒有任何請假或換班申請紀錄。</div>
-                                    ) : (
-                                        <div className="divide-y divide-slate-100">
-                                            {leaveRequests.map((req) => (
-                                                <div key={req.id} className="p-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                                                    <div>
-                                                        <div className="flex items-center space-x-2 mb-1">
-                                                            <span className="font-bold text-slate-900">{req.applicant}</span>
-                                                            <span className="text-xs bg-amber-50 text-amber-700 font-semibold px-2 py-0.5 rounded border border-amber-200">
-                                                                {req.status}
-                                                            </span>
-                                                        </div>
-                                                        <p className="text-sm text-slate-600 mb-1">請假日期：{req.date}</p>
-                                                        <p className="text-xs text-slate-500">事由：{req.reason} | 代理人：{req.substitute || '未指定'}</p>
-                                                    </div>
-                                                    {userRole !== 'member' && req.status === '審核中' && (
-                                                        <div className="flex items-center space-x-2">
-                                                            <button 
-                                                                onClick={() => {
-                                                                    setLeaveRequests(leaveRequests.map(r => r.id === req.id ? {...r, status: '已核准'} : r));
-                                                                    showToast('已核准該請假申請');
-                                                                }}
-                                                                className="px-3 py-1.5 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 rounded-lg text-xs font-bold transition">
-                                                                核准
-                                                            </button>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        )}
-
-                        {/* 4. 設備報修系統頁籤 */}
-                        {currentTab === 'repair' && (
-                            <div className="space-y-6">
-                                <div className="flex items-center justify-between">
-                                    <div>
-                                        <h2 className="text-xl font-bold text-slate-900">直播設備報修系統</h2>
-                                        <p className="text-sm text-slate-500">攝影機、音訊混音器、導播機故障回報</p>
-                                    </div>
-                                    <button 
-                                        onClick={() => setShowRepairModal(true)}
-                                        className="inline-flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-2.5 rounded-xl shadow-md transition">
-                                        <i data-lucide="plus" className="w-4 h-4"></i>
-                                        <span>填寫報修單</span>
-                                    </button>
-                                </div>
-
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    {repairs.length === 0 ? (
-                                        <div className="col-span-2 bg-white rounded-2xl p-12 text-center border border-slate-200 text-slate-400 shadow-sm">
-                                            目前無設備報修紀錄，所有設備運作正常！
-                                        </div>
-                                    ) : (
-                                        repairs.map((rep) => (
-                                            <div key={rep.id} className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm flex flex-col justify-between">
-                                                <div>
-                                                    <div className="flex items-center justify-between mb-2">
-                                                        <span className="font-bold text-slate-900 text-base">{rep.equipment}</span>
-                                                        <span className={`text-xs font-bold px-2.5 py-1 rounded-lg ${rep.urgency === '緊急' ? 'bg-red-50 text-red-600 border border-red-200' : 'bg-blue-50 text-blue-600 border border-blue-200'}`}>
-                                                            {rep.urgency}
-                                                        </span>
-                                                    </div>
-                                                    <p className="text-sm text-slate-600 mb-4">{rep.issue}</p>
-                                                </div>
-                                                <div className="flex items-center justify-between pt-3 border-t border-slate-100 text-xs text-slate-400">
-                                                    <span>回報人：{rep.reporter}</span>
-                                                    <span className="text-amber-600 font-semibold">{rep.status}</span>
-                                                </div>
-                                            </div>
-                                        ))
-                                    )}
-                                </div>
-                            </div>
-                        )}
-                    </main>
-
-                    {/* 彈窗：新增班表 (總召限定) */}
-                    {showScheduleModal && (
-                        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
-                            <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 max-h-[90vh] overflow-y-auto custom-scrollbar">
-                                <div className="flex items-center justify-between mb-4">
-                                    <h3 className="text-lg font-bold text-slate-900">新增直播排班任務</h3>
-                                    <button onClick={() => setShowScheduleModal(false)} className="text-slate-400 hover:text-slate-600">
-                                        <i data-lucide="x" className="w-5 h-5"></i>
-                                    </button>
-                                </div>
-                                <form onSubmit={handleCreateSchedule} className="space-y-4">
-                                    <div>
-                                        <label className="block text-xs font-bold text-slate-600 mb-1">直播主題名稱 *</label>
-                                        <input 
-                                            type="text" 
-                                            required
-                                            value={newSchedule.title}
-                                            onChange={e => setNewSchedule({...newSchedule, title: e.target.value})}
-                                            placeholder="例：畢業典禮預演直播" 
-                                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                        />
-                                    </div>
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div>
-                                            <label className="block text-xs font-bold text-slate-600 mb-1">日期 *</label>
-                                            <input 
-                                                type="date" 
-                                                required
-                                                value={newSchedule.date}
-                                                onChange={e => setNewSchedule({...newSchedule, date: e.target.value})}
-                                                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="block text-xs font-bold text-slate-600 mb-1">時間 *</label>
-                                            <input 
-                                                type="text" 
-                                                required
-                                                value={newSchedule.time}
-                                                onChange={e => setNewSchedule({...newSchedule, time: e.target.value})}
-                                                placeholder="例：13:30 - 16:30" 
-                                                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                            />
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-bold text-slate-600 mb-1">直播地點</label>
-                                        <input 
-                                            type="text" 
-                                            value={newSchedule.location}
-                                            onChange={e => setNewSchedule({...newSchedule, location: e.target.value})}
-                                            placeholder="例：明道樓演藝廳" 
-                                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                        />
-                                    </div>
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div>
-                                            <label className="block text-xs font-bold text-slate-600 mb-1">總導播</label>
-                                            <input 
-                                                type="text" 
-                                                value={newSchedule.director}
-                                                onChange={e => setNewSchedule({...newSchedule, director: e.target.value})}
-                                                placeholder="姓名" 
-                                                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="block text-xs font-bold text-slate-600 mb-1">攝影師</label>
-                                            <input 
-                                                type="text" 
-                                                value={newSchedule.cameraman}
-                                                onChange={e => setNewSchedule({...newSchedule, cameraman: e.target.value})}
-                                                placeholder="姓名" 
-                                                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                            />
-                                        </div>
-                                    </div>
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div>
-                                            <label className="block text-xs font-bold text-slate-600 mb-1">音控</label>
-                                            <input 
-                                                type="text" 
-                                                value={newSchedule.audio}
-                                                onChange={e => setNewSchedule({...newSchedule, audio: e.target.value})}
-                                                placeholder="姓名" 
-                                                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="block text-xs font-bold text-slate-600 mb-1">切換手</label>
-                                            <input 
-                                                type="text" 
-                                                value={newSchedule.switcher}
-                                                onChange={e => setNewSchedule({...newSchedule, switcher: e.target.value})}
-                                                placeholder="姓名" 
-                                                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                            />
-                                        </div>
-                                    </div>
-                                    <div className="flex justify-end space-x-3 pt-4 border-t border-slate-100">
-                                        <button 
-                                            type="button" 
-                                            onClick={() => setShowScheduleModal(false)}
-                                            className="px-4 py-2 text-sm font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition">
-                                            取消
-                                        </button>
-                                        <button 
-                                            type="submit" 
-                                            className="px-5 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-md transition">
-                                            確認建立
-                                        </button>
-                                    </div>
-                                </form>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* 彈窗：新增公告 */}
-                    {showAnnouncementModal && (
-                        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
-                            <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-100">
-                                <div className="flex items-center justify-between mb-4">
-                                    <h3 className="text-lg font-bold text-slate-900">發布團隊公告</h3>
-                                    <button onClick={() => setShowAnnouncementModal(false)} className="text-slate-400 hover:text-slate-600">
-                                        <i data-lucide="x" className="w-5 h-5"></i>
-                                    </button>
-                                </div>
-                                <form onSubmit={(e) => {
-                                    e.preventDefault();
-                                    if(!newAnnouncement.title || !newAnnouncement.content) return;
-                                    setAnnouncements([{...newAnnouncement, date: new Date().toISOString().split('T')[0], author: currentUser}, ...announcements]);
-                                    setNewAnnouncement({title: '', content: ''});
-                                    setShowAnnouncementModal(false);
-                                    showToast('公告發布成功！');
-                                }} className="space-y-4">
-                                    <div>
-                                        <label className="block text-xs font-bold text-slate-600 mb-1">公告標題 *</label>
-                                        <input 
-                                            type="text" 
-                                            required
-                                            value={newAnnouncement.title}
-                                            onChange={e => setNewAnnouncement({...newAnnouncement, title: e.target.value})}
-                                            placeholder="標題" 
-                                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-bold text-slate-600 mb-1">公告內容 *</label>
-                                        <textarea 
-                                            required
-                                            rows="4"
-                                            value={newAnnouncement.content}
-                                            onChange={e => setNewAnnouncement({...newAnnouncement, content: e.target.value})}
-                                            placeholder="請輸入詳細公告內容..." 
-                                            className="w-full bg-slate-50 border border-slate-200 rounded-xl p-4 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                        ></textarea>
-                                    </div>
-                                    <div className="flex justify-end space-x-3 pt-2">
-                                        <button type="button" onClick={() => setShowAnnouncementModal(false)} className="px-4 py-2 text-sm font-medium text-slate-600 bg-slate-100 rounded-xl">取消</button>
-                                        <button type="submit" className="px-5 py-2 text-sm font-medium text-white bg-blue-600 rounded-xl shadow-md">發布</button>
-                                    </div>
-                                </form>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* 彈窗：請假申請 */}
-                    {showLeaveModal && (
-                        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
-                            <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-100">
-                                <div className="flex items-center justify-between mb-4">
-                                    <h3 className="text-lg font-bold text-slate-900">提出請假與換班申請</h3>
-                                    <button onClick={() => setShowLeaveModal(false)} className="text-slate-400 hover:text-slate-600">
-                                        <i data-lucide="x" className="w-5 h-5"></i>
-                                    </button>
-                                </div>
-                                <form onSubmit={handleSubmitLeave} className="space-y-4">
-                                    <div>
-                                        <label className="block text-xs font-bold text-slate-600 mb-1">請假日期 *</label>
-                                        <input 
-                                            type="date" 
-                                            required
-                                            value={newLeave.date}
-                                            onChange={e => setNewLeave({...newLeave, date: e.target.value})}
-                                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-bold text-slate-600 mb-1">請假事由 *</label>
-                                        <textarea 
-                                            required
-                                            rows="3"
-                                            value={newLeave.reason}
-                                            onChange={e => setNewLeave({...newLeave, reason: e.target.value})}
-                                            placeholder="請說明請假原因..." 
-                                            className="w-full bg-slate-50 border border-slate-200 rounded-xl p-4 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                        ></textarea>
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-bold text-slate-600 mb-1">職務代理人</label>
-                                        <input 
-                                            type="text" 
-                                            value={newLeave.substitute}
-                                            onChange={e => setNewLeave({...newLeave, substitute: e.target.value})}
-                                            placeholder="代理人姓名" 
-                                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                        />
-                                    </div>
-                                    <div className="flex justify-end space-x-3 pt-2">
-                                        <button type="button" onClick={() => setShowLeaveModal(false)} className="px-4 py-2 text-sm font-medium text-slate-600 bg-slate-100 rounded-xl">取消</button>
-                                        <button type="submit" className="px-5 py-2 text-sm font-medium text-white bg-blue-600 rounded-xl shadow-md">送出申請</button>
-                                    </div>
-                                </form>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* 彈窗：設備報修 */}
-                    {showRepairModal && (
-                        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
-                            <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-100">
-                                <div className="flex items-center justify-between mb-4">
-                                    <h3 className="text-lg font-bold text-slate-900">填寫設備報修單</h3>
-                                    <button onClick={() => setShowRepairModal(false)} className="text-slate-400 hover:text-slate-600">
-                                        <i data-lucide="x" className="w-5 h-5"></i>
-                                    </button>
-                                </div>
-                                <form onSubmit={handleSubmitRepair} className="space-y-4">
-                                    <div>
-                                        <label className="block text-xs font-bold text-slate-600 mb-1">設備名稱 *</label>
-                                        <input 
-                                            type="text" 
-                                            required
-                                            value={newRepair.equipment}
-                                            onChange={e => setNewRepair({...newRepair, equipment: e.target.value})}
-                                            placeholder="例：Sony 攝影機 #2" 
-                                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-bold text-slate-600 mb-1">故障狀況描述 *</label>
-                                        <textarea 
-                                            required
-                                            rows="3"
-                                            value={newRepair.issue}
-                                            onChange={e => setNewRepair({...newRepair, issue: e.target.value})}
-                                            placeholder="描述具體狀況..." 
-                                            className="w-full bg-slate-50 border border-slate-200 rounded-xl p-4 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                        ></textarea>
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-bold text-slate-600 mb-1">急迫程度</label>
-                                        <select 
-                                            value={newRepair.urgency}
-                                            onChange={e => setNewRepair({...newRepair, urgency: e.target.value})}
-                                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                                            <option value="普通">普通 (下次直播前修復即可)</option>
-                                            <option value="緊急">緊急 (影響當前或即時直播)</option>
-                                        </select>
-                                    </div>
-                                    <div className="flex justify-end space-x-3 pt-2">
-                                        <button type="button" onClick={() => setShowRepairModal(false)} className="px-4 py-2 text-sm font-medium text-slate-600 bg-slate-100 rounded-xl">取消</button>
-                                        <button type="submit" className="px-5 py-2 text-sm font-medium text-white bg-blue-600 rounded-xl shadow-md">送出報修</button>
-                                    </div>
-                                </form>
-                            </div>
-                        </div>
-                    )}
+      if (!currentUser) {
+        return (
+          <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4 relative">
+            {message && (
+              <div className="fixed bottom-6 left-4 right-4 sm:left-auto sm:right-6 z-50 bg-indigo-600 text-white px-4 py-3 rounded-2xl shadow-2xl border border-indigo-400 flex items-center space-x-2 animate-bounce">
+                <i data-lucide="check-circle" className="w-5 h-5 flex-shrink-0"></i>
+                <span className="font-medium text-xs md:text-sm">{message}</span>
+              </div>
+            )}
+            <div className="bg-slate-800 border border-slate-700 rounded-3xl w-full max-w-sm p-6 sm:p-8 shadow-2xl space-y-6">
+              <div className="text-center space-y-2">
+                <div className="inline-flex bg-gradient-to-tr from-indigo-500 to-rose-500 p-3 rounded-2xl text-white shadow-lg mb-2">
+                  <i data-lucide="radio" className="w-8 h-8"></i>
                 </div>
-            );
-        }
+                <h1 className="text-xl font-bold text-white tracking-wide">明道中學直播團隊系統</h1>
+                <p className="text-xs text-slate-400">請輸入個人密碼登入系統</p>
+              </div>
+              <form onSubmit={handleLogin} className="space-y-4 text-xs">
+                {loginError && (
+                  <div className="bg-rose-500/10 border border-rose-500/30 text-rose-300 p-3 rounded-xl text-center font-medium">
+                    {loginError}
+                  </div>
+                )}
+                <div>
+                  <label className="block text-slate-300 font-semibold mb-1.5 text-center">個人密碼 (不限大小寫)</label>
+                  <input
+                    type="password"
+                    value={loginPassword}
+                    onChange={(e) => setLoginPassword(e.target.value)}
+                    placeholder="請輸入密碼"
+                    autoFocus
+                    required
+                    className="w-full bg-slate-900 border border-slate-700 text-white rounded-xl p-3.5 text-base text-center font-mono tracking-widest focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+                <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm py-3 rounded-xl shadow-lg transition duration-200">
+                  直接登入
+                </button>
+              </form>
+            </div>
+          </div>
+        );
+      }
 
-        // 初始化 Lucide 圖標
-        setTimeout(() => {
-            if (window.lucide) {
-                window.lucide.createIcons();
-            }
-        }, 100);
+      return (
+        <div className="flex flex-col md:flex-row min-h-screen bg-slate-900 text-slate-100 relative">
+          
+          {message && (
+            <div className="fixed bottom-6 left-4 right-4 md:left-auto md:right-6 z-50 bg-indigo-600 text-white px-4 py-3 rounded-2xl shadow-2xl border border-indigo-400 flex items-center justify-between space-x-2 animate-bounce">
+              <div className="flex items-center space-x-2">
+                <i data-lucide="check-circle" className="w-5 h-5 flex-shrink-0"></i>
+                <span className="font-medium text-xs md:text-sm">{message}</span>
+              </div>
+            </div>
+          )}
 
-        const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<App />);
-    </script>
+          <header className="md:hidden bg-slate-800 border-b border-slate-700 px-4 py-3 flex items-center justify-between sticky top-0 z-40">
+            <div className="flex items-center space-x-2">
+              <div className="bg-gradient-to-tr from-indigo-500 to-rose-500 p-1.5 rounded-lg text-white">
+                <i data-lucide="radio" className="w-5 h-5"></i>
+              </div>
+              <span className="font-bold text-base text-white">明道直播團隊</span>
+            </div>
+            <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="p-2 bg-slate-700 text-slate-200 rounded-lg">
+              <i data-lucide={isMobileMenuOpen ? "x" : "menu"} className="w-5 h-5"></i>
+            </button>
+          </header>
+
+          <aside className={`
+            fixed md:static inset-x-0 top-[53px] bottom-0 z-30 bg-slate-800 border-r border-slate-700 p-4 flex flex-col justify-between transition-transform duration-300 md:translate-x-0 w-full md:w-64
+            ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}
+          `}>
+            <div>
+              <div className="hidden md:flex items-center space-x-3 p-2 mb-6 border-b border-slate-700 pb-4">
+                <div className="bg-gradient-to-tr from-indigo-500 to-rose-500 p-2 rounded-xl text-white shadow-lg">
+                  <i data-lucide="radio" className="w-6 h-6"></i>
+                </div>
+                <div>
+                  <h1 className="font-bold text-sm text-white leading-tight">明道中學直播團隊</h1>
+                  <span className="text-[11px] text-slate-400">活動與朝會排班系統</span>
+                </div>
+              </div>
+
+              <nav className="space-y-1.5">
+                {[
+                  { id: 'dashboard', label: '全體班表', icon: 'layout-dashboard' },
+                  { id: 'sop', label: '崗位操作說明與注意事項', icon: 'clipboard-list' },
+                  { id: 'repairs', label: '設備報修系統', icon: 'wrench', badge: repairs.filter(r => r.status === 'pending').length },
+                  { id: 'swaps', label: '請假與換班審核', icon: 'arrow-left-right', badge: currentUser.role === 'admin' ? swaps.filter(s => s.status === 'pending').length : 0 },
+                  ...(currentUser.role === 'admin' ? [{ id: 'admin', label: '權限與成員管理', icon: 'shield-check' }] : [])
+                ].map(item => (
+                  <button
+                    key={item.id}
+                    onClick={() => { setActiveTab(item.id); setIsMobileMenuOpen(false); }}
+                    className={`w-full flex items-center justify-between px-3.5 py-3 md:py-2.5 rounded-xl text-xs md:text-sm font-medium transition ${activeTab === item.id ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-300 hover:bg-slate-700/50'}`}
+                  >
+                    <div className="flex items-center space-x-3">
+                      <i data-lucide={item.icon} className="w-4 h-4 flex-shrink-0"></i>
+                      <span>{item.label}</span>
+                    </div>
+                    {item.badge > 0 && (
+                      <span className="bg-rose-500 text-white text-[10px] px-2 py-0.5 rounded-full font-bold">
+                        {item.badge}
+                      </span>
+                    )}
+                  </button>
+                ))}
+              </nav>
+
+              <div className="mt-6 pt-4 border-t border-slate-700">
+                <span className="text-[11px] font-semibold text-slate-400 tracking-wider uppercase px-2">常用捷徑</span>
+                <div className="mt-2 space-y-1">
+                  <a href="https://drive.google.com/drive/folders/1ZNwZxahyezQzIkaYZI6pvnYi9rc3Eqj3?usp=drive_link" target="_blank" rel="noreferrer" className="flex items-center space-x-3 px-3 py-2 rounded-lg text-xs font-medium text-slate-300 hover:bg-slate-700/50">
+                    <i data-lucide="folder-git-2" className="w-4 h-4 text-emerald-400"></i>
+                    <span>線上朝會Google 雲端硬碟</span>
+                  </a>
+                  <a href="https://youtube.com/playlist?list=PLgRnx0Z3J6Wvs3_pbeoUIR-DgCsn0x3hK&si=4y15odsy2ZVRT-Ft" target="_blank" rel="noreferrer" className="flex items-center space-x-3 px-3 py-2 rounded-lg text-xs font-medium text-slate-300 hover:bg-slate-700/50">
+                    <i data-lucide="youtube" className="w-4 h-4 text-rose-500"></i>
+                    <span>直播 YT 頻道</span>
+                  </a>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-6 pt-4 border-t border-slate-700 flex items-center justify-between">
+              <button onClick={() => { setEditingMemberData(currentUser); setIsPersonalSettings(true); setAvatarBase64(''); setIsMemberModalOpen(true); }} className="text-xs text-indigo-400 hover:underline">
+                ⚙️ 個人設定
+              </button>
+              <button onClick={handleLogout} className="flex items-center space-x-1 bg-slate-900 hover:bg-rose-900/40 text-slate-300 hover:text-rose-300 border border-slate-700 px-3 py-1.5 rounded-xl text-xs font-medium transition">
+                <i data-lucide="log-out" className="w-3.5 h-3.5"></i>
+                <span>登出</span>
+              </button>
+            </div>
+          </aside>
+
+          <main className="flex-1 p-3 md:p-8 overflow-y-auto custom-scrollbar space-y-4 md:space-y-6">
+            
+            <div className="bg-gradient-to-r from-slate-800 via-indigo-950/50 to-slate-800 border border-indigo-500/40 rounded-2xl p-3 md:p-4 flex items-center justify-between shadow-lg">
+              <div className="flex items-center space-x-3">
+                <div className="relative">
+                  {currentUser.avatar ? (
+                    <img src={currentUser.avatar} alt="Avatar" className="w-10 h-10 rounded-full object-cover border-2 border-indigo-500" />
+                  ) : (
+                    <div className="w-10 h-10 rounded-full bg-slate-700 border-2 border-indigo-500 flex items-center justify-center text-slate-300 font-bold text-sm">
+                      {currentUser.name.charAt(0)}
+                    </div>
+                  )}
+                  <span className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-slate-900 ${
+                    currentUser.role === 'admin' ? 'bg-emerald-400' : currentUser.role === 'leader' ? 'bg-amber-400' : 'bg-blue-400'
+                  }`}></span>
+                </div>
+                <div>
+                  <div className="flex items-center space-x-2">
+                    <span className="text-xs text-slate-400">當前登入：</span>
+                    <span className="text-sm font-bold text-white">{currentUser.name}</span>
+                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
+                      currentUser.role === 'admin' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40' :
+                      currentUser.role === 'leader' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40' :
+                      'bg-blue-500/20 text-blue-300 border border-blue-500/40'
+                    }`}>
+                      {currentUser.role === 'admin' ? '老師 / 總召' : currentUser.role === 'leader' ? '組長' : '組員 / 實習生'}
+                    </span>
+                  </div>
+                  <div className="text-[11px] text-indigo-300 font-medium">{currentUser.title}</div>
+                </div>
+              </div>
+
+              <div className="hidden sm:block text-right">
+                <span className="text-[10px] text-emerald-400 flex items-center justify-end font-mono mb-0.5">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 mr-1 animate-pulse"></span>
+                  Firebase 雲端即時同步中
+                </span>
+                <span className="text-xs font-semibold text-slate-200">
+                  {currentUser.role === 'admin' ? '最高權限' : currentUser.role === 'leader' ? '組長權限' : '組員'}
+                </span>
+              </div>
+            </div>
+
+            <div className="bg-slate-800/90 border border-slate-700/80 rounded-2xl p-3 md:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2 shadow-sm">
+              <div className="flex items-center space-x-3">
+                <div className="bg-indigo-500/20 text-indigo-400 p-2 rounded-xl flex-shrink-0">
+                  <i data-lucide="megaphone" className="w-4 h-4 md:w-5 md:h-5"></i>
+                </div>
+                <div>
+                  <span className="text-[10px] md:text-xs text-indigo-300 font-bold uppercase">官方公告</span>
+                  <p className="text-xs md:text-sm font-medium text-slate-200 leading-snug">{announcement}</p>
+                </div>
+              </div>
+              {currentUser.role === 'admin' && (
+                <button onClick={handleUpdateAnnouncement} className="self-end sm:self-center text-[11px] bg-slate-700 hover:bg-slate-600 px-2.5 py-1 rounded-lg text-slate-300 transition">
+                  編輯官方公告
+                </button>
+              )}
+            </div>
+
+            {leaderSuggestions.length > 0 && (
+              <div className="bg-slate-800/80 border border-amber-500/30 rounded-2xl p-4 shadow-md space-y-3">
+                <div className="flex items-center justify-between pb-2 border-b border-slate-700">
+                  <div className="flex items-center space-x-2">
+                    <div className="bg-amber-500/20 text-amber-400 p-1.5 rounded-lg">
+                      <i data-lucide="message-square-quote" className="w-4 h-4"></i>
+                    </div>
+                    <div>
+                      <h3 className="text-xs md:text-sm font-bold text-white">組長建議與公告牆</h3>
+                      <p className="text-[10px] text-slate-400">各組長發布的建議與注意事項</p>
+                    </div>
+                  </div>
+
+                  {(currentUser.role === 'admin' || currentUser.role === 'leader') && (
+                    <button
+                      onClick={() => setIsSuggestionModalOpen(true)}
+                      className="bg-amber-600 hover:bg-amber-500 text-white text-xs px-3 py-1.5 rounded-xl font-medium transition flex items-center space-x-1"
+                    >
+                      <i data-lucide="plus" className="w-3.5 h-3.5"></i>
+                      <span>發布建議/公告</span>
+                    </button>
+                  )}
+                </div>
+
+                <div className="space-y-2.5">
+                  {leaderSuggestions.map(sug => (
+                    <div key={sug.id} className="bg-slate-900/70 border border-slate-700/80 rounded-xl p-3 flex items-start justify-between gap-2">
+                      <div className="space-y-1">
+                        <div className="flex items-center space-x-2">
+                          <span className="font-bold text-amber-300 text-xs">{sug.authorName}</span>
+                          <span className="text-[10px] bg-slate-800 text-slate-400 px-2 py-0.5 rounded">{sug.authorTitle}</span>
+                          <span className="text-[10px] text-slate-500">{new Date(sug.timestamp).toLocaleString([], {month: 'numeric', day: 'numeric', hour: '2-digit', minute:'2-digit'})}</span>
+                        </div>
+                        <p className="text-xs text-slate-200 leading-relaxed">{sug.content}</p>
+                      </div>
+
+                      {(currentUser.role === 'admin' || currentUser.role === 'leader' || currentUser.id === sug.authorId) && (
+                        <button onClick={() => handleDeleteSuggestion(sug.id)} className="text-slate-500 hover:text-rose-400 p-1 transition" title="刪除">
+                          <i data-lucide="trash-2" className="w-4 h-4"></i>
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {leaderSuggestions.length === 0 && (currentUser.role === 'admin' || currentUser.role === 'leader') && (
+              <div className="flex justify-end">
+                <button
+                  onClick={() => setIsSuggestionModalOpen(true)}
+                  className="bg-slate-800 hover:bg-slate-700 border border-amber-500/40 text-amber-400 text-xs px-3 py-2 rounded-xl transition flex items-center space-x-1.5"
+                >
+                  <i data-lucide="plus-circle" className="w-4 h-4"></i>
+                  <span>+ 發布第一則組長公告/建議</span>
+                </button>
+              </div>
+            )}
+
+            {activeTab === 'dashboard' && (
+              <div className="space-y-6">
+                <div className="bg-slate-800 border border-slate-700 rounded-2xl p-4 md:p-6 shadow-md">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-xs md:text-sm font-semibold text-slate-300 flex items-center">
+                      <i data-lucide="user-check" className="w-4 h-4 mr-1.5 text-indigo-400"></i>
+                      【{currentUser.name}】個人近期負責工作
+                    </h3>
+                    <button onClick={() => setIsSwapModalOpen(true)} className="bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs px-3 py-1.5 rounded-xl transition flex items-center space-x-1">
+                      <i data-lucide="arrow-left-right" className="w-3.5 h-3.5"></i>
+                      <span>申請請假 / 換班</span>
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {schedules.filter(sch => isUserInSchedule(sch, currentUser.id)).map(sch => {
+                      const myAssignedRoles = DUTY_ROLES.filter(r => {
+                        const ids = (sch.assignments && sch.assignments[r.key]) || [];
+                        return ids.includes(currentUser.id);
+                      });
+                      return (
+                        <div key={sch.id} className="bg-slate-900/80 p-3 rounded-xl border border-indigo-500/30 flex items-center justify-between">
+                          <div>
+                            <div className="text-[10px] text-slate-400">{sch.date}</div>
+                            <div className="text-xs font-bold text-white">{sch.title}</div>
+                          </div>
+                          <div className="flex flex-wrap gap-1 justify-end">
+                            {myAssignedRoles.map(r => (
+                              <span key={r.key} className="bg-indigo-600/30 text-indigo-300 border border-indigo-500/40 text-[11px] font-bold px-2 py-0.5 rounded-lg">
+                                {r.label}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
+                    {schedules.filter(sch => isUserInSchedule(sch, currentUser.id)).length === 0 && (
+                      <div className="text-xs text-slate-500 text-center py-4 sm:col-span-2">近期班表中暫無指派您的工作</div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="bg-slate-800 border border-slate-700 rounded-2xl p-4 md:p-6 shadow-md space-y-6">
+                  <div className="flex items-center justify-between pb-3 border-b border-slate-700">
+                    <div>
+                      <h3 className="text-base font-bold text-white flex items-center">
+                        <i data-lucide="calendar" className="w-5 h-5 mr-2 text-indigo-400"></i>
+                        全體月班表
+                      </h3>
+                    </div>
+                    {(currentUser.role === 'admin' || currentUser.role === 'leader') && (
+                      <button onClick={() => handleOpenScheduleModal(null)} className="bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-xs px-3 py-2 rounded-xl transition flex items-center space-x-1">
+                        <i data-lucide="plus-circle" className="w-4 h-4"></i>
+                        <span>新增班表</span>
+                      </button>
+                    )}
+                  </div>
+
+                  {latestSchedule ? (
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-xs font-bold text-indigo-400 uppercase tracking-wider flex items-center">
+                          <i data-lucide="sparkles" className="w-3.5 h-3.5 mr-1 text-amber-400"></i>
+                          最近一次朝會排班
+                        </span>
+                        <span className="text-[11px] text-rose-400 font-bold bg-rose-500/10 px-2 py-0.5 rounded-full border border-rose-500/20">即將到來</span>
+                      </div>
+                      <div className="bg-slate-900 border-2 border-indigo-500/60 rounded-2xl p-4 shadow-xl relative">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 mb-3 border-b border-slate-800 gap-1">
+                          <div>
+                            <div className="flex items-center space-x-2 mb-1">
+                              <span className="bg-indigo-600 text-white text-[10px] px-2.5 py-0.5 rounded-full font-mono font-bold">{latestSchedule.date}</span>
+                              <span className="text-xs text-slate-400">{latestSchedule.time}</span>
+                            </div>
+                            <h4 className="font-bold text-white text-base">{latestSchedule.title}</h4>
+                          </div>
+                          {(currentUser.role === 'admin' || currentUser.role === 'leader') && (
+                            <button onClick={() => handleOpenScheduleModal(latestSchedule)} className="self-end sm:self-auto text-xs bg-slate-800 hover:bg-slate-700 text-indigo-300 border border-slate-700 px-3 py-1.5 rounded-xl font-medium">
+                              編輯工作人員
+                            </button>
+                          )}
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-5 gap-2.5">
+                          {DUTY_ROLES.map(role => {
+                            const assignedIds = (latestSchedule.assignments && latestSchedule.assignments[role.key]) || [];
+                            const assignedMembers = members.filter(m => assignedIds.includes(m.id));
+                            const isMeInRole = assignedIds.includes(currentUser.id);
+
+                            return (
+                              <div key={role.key} className={`p-2.5 rounded-xl border ${isMeInRole ? 'bg-indigo-950/80 border-indigo-500 shadow-md' : 'bg-slate-800/80 border-slate-700/80'}`}>
+                                <div className="text-[11px] text-slate-400 font-medium mb-1.5 flex items-center justify-between border-b border-slate-700/60 pb-1">
+                                  <span>{role.label}</span>
+                                  <span className="text-[10px] text-slate-500">{assignedMembers.length} 人</span>
+                                </div>
+                                <div className="flex flex-wrap gap-1">
+                                  {assignedMembers.map(m => (
+                                    <span key={m.id} className={`text-xs font-semibold px-2 py-0.5 rounded-md ${m.id === currentUser.id ? 'bg-indigo-600 text-white' : 'bg-slate-700/90 text-slate-200'}`}>
+                                      {m.name}
+                                    </span>
+                                  ))}
+                                  {assignedMembers.length === 0 && <span className="text-xs text-slate-500 italic">未指派</span>}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 text-xs text-slate-500 bg-slate-900/40 rounded-2xl border border-slate-700/50">
+                      目前尚無任何排班表，點擊上方「新增班表」按鈕建立第一筆排班。
+                    </div>
+                  )}
+
+                  {upcomingSchedules.length > 0 && (
+                    <div className="pt-2">
+                      <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">即將到來的直播 ({upcomingSchedules.length})</div>
+                      <div className="space-y-3">
+                        {upcomingSchedules.map((sch) => (
+                          <div key={sch.id} className="bg-slate-900/60 border border-slate-700/80 rounded-xl p-3 md:p-4">
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-2 mb-2 border-b border-slate-800 gap-1">
+                              <div className="flex items-center space-x-2">
+                                <span className="bg-slate-800 text-slate-300 text-[10px] px-2 py-0.5 rounded font-mono font-bold border border-slate-700">{sch.date}</span>
+                                <span className="text-xs text-slate-400">{sch.time}</span>
+                                <h4 className="font-bold text-white text-xs md:text-sm">{sch.title}</h4>
+                              </div>
+                              {(currentUser.role === 'admin' || currentUser.role === 'leader') && (
+                                <button onClick={() => handleOpenScheduleModal(sch)} className="self-end sm:self-auto text-[11px] text-indigo-400 hover:underline">編輯人員</button>
+                              )}
+                            </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-5 gap-2">
+                              {DUTY_ROLES.map(role => {
+                                const assignedIds = (sch.assignments && sch.assignments[role.key]) || [];
+                                const assignedMembers = members.filter(m => assignedIds.includes(m.id));
+                                return (
+                                  <div key={role.key} className="p-2 rounded-lg bg-slate-800/50 border border-slate-700/50">
+                                    <div className="text-[10px] text-slate-400 mb-1">{role.label}</div>
+                                    <div className="flex flex-wrap gap-1">
+                                      {assignedMembers.map(m => (
+                                        <span key={m.id} className="text-[11px] bg-slate-700 text-slate-200 px-1.5 py-0.5 rounded font-medium">{m.name}</span>
+                                      ))}
+                                      {assignedMembers.length === 0 && <span className="text-[11px] text-slate-500 italic">無人</span>}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'sop' && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-lg font-bold text-white">崗位操作說明與注意事項</h2>
+                  {(currentUser.role === 'admin' || currentUser.role === 'leader') && (
+                    <span className="text-xs text-amber-400">✨ 您擁有組長編輯權限</span>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {DUTY_ROLES.map(role => {
+                    const sopObj = sopData[role.key] || { title: role.label + ' SOP', items: [] };
+                    const isEditing = editingSopKey === role.key;
+
+                    return (
+                      <div key={role.key} className="bg-slate-800 border border-slate-700 rounded-2xl p-4 shadow-md flex flex-col justify-between">
+                        <div>
+                          <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-700">
+                            <div className="flex items-center space-x-2.5">
+                              <i data-lucide={role.icon} className="w-4 h-4 text-indigo-400"></i>
+                              <h3 className="font-bold text-white text-sm">{sopObj.title}</h3>
+                            </div>
+
+                            {(currentUser.role === 'admin' || currentUser.role === 'leader') && !isEditing && (
+                              <button
+                                onClick={() => {
+                                  setEditingSopKey(role.key);
+                                  setEditingSopContent(sopObj.items.join('\n'));
+                                }}
+                                className="text-xs bg-slate-700 hover:bg-slate-600 text-slate-300 px-2.5 py-1 rounded-lg transition"
+                              >
+                                編輯操作說明
+                              </button>
+                            )}
+                          </div>
+
+                          {isEditing ? (
+                            <div className="space-y-2">
+                              <textarea
+                                value={editingSopContent}
+                                onChange={(e) => setEditingSopContent(e.target.value)}
+                                rows="6"
+                                className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2 text-xs text-slate-200 font-mono focus:outline-none focus:border-indigo-500"
+                                placeholder="每行輸入一項步驟..."
+                              ></textarea>
+                              <div className="flex justify-end space-x-2">
+                                <button onClick={() => setEditingSopKey(null)} className="px-3 py-1 bg-slate-700 text-xs rounded-lg">取消</button>
+                                <button onClick={() => handleSaveSop(role.key)} className="px-3 py-1 bg-indigo-600 text-xs rounded-lg font-bold">儲存</button>
+                              </div>
+                            </div>
+                          ) : (
+                            <ul className="space-y-2">
+                              {sopObj.items.map((item, idx) => (
+                                <li key={idx} className="flex items-start space-x-2 text-xs text-slate-300">
+                                  <input type="checkbox" className="mt-0.5 rounded border-slate-600 bg-slate-900" />
+                                  <span className="leading-tight">{item}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'repairs' && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-lg font-bold text-white">設備故障紀錄</h2>
+                  <button onClick={() => setIsRepairModalOpen(true)} className="bg-rose-600 text-white text-xs px-3 py-2 rounded-xl font-medium">+ 回報報修</button>
+                </div>
+                <div className="space-y-3">
+                  {repairs.map(rep => (
+                    <div key={rep.id} className="bg-slate-800 border border-slate-700 rounded-2xl p-4 shadow-md">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="font-bold text-white text-sm">{rep.item}</span>
+                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${rep.status === 'resolved' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'}`}>
+                          {rep.status === 'resolved' ? '已排除' : '待處理'}
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-300 mb-2">{rep.issue}</p>
+                      <div className="flex items-center justify-between text-[10px] text-slate-400 border-t border-slate-700/60 pt-2">
+                        <span>回報人：{rep.reporter} ({rep.date})</span>
+                        {(currentUser.role === 'admin' || currentUser.role === 'leader') && (
+                          <button onClick={async () => {
+                            const updated = { ...rep, status: rep.status === 'pending' ? 'resolved' : 'pending' };
+                            try {
+                              if (db) {
+                                const { doc, setDoc } = window.FirebaseSDK;
+                                await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'repairs', rep.id), updated);
+                              }
+                            } catch (err) {}
+                            setRepairs(prev => prev.map(r => r.id === rep.id ? updated : r));
+                            showToast('報修狀態已更新！');
+                          }} className="text-indigo-400 font-bold">切換狀態</button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                  {repairs.length === 0 && <div className="text-xs text-slate-500 text-center py-6">目前無設備報修紀錄</div>}
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'swaps' && (
+              <div className="space-y-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-lg font-bold text-white">請假與換班審核中心</h2>
+                    <p className="text-xs text-slate-400">審核並查看歷史紀錄</p>
+                  </div>
+                  <button onClick={() => setIsSwapModalOpen(true)} className="bg-indigo-600 text-white text-xs px-3 py-2 rounded-xl font-medium">+ 提出申請</button>
+                </div>
+
+                <div className="space-y-3">
+                  <h3 className="text-xs font-bold text-amber-400 uppercase tracking-wider">⏳ 等待總召審核 ({swaps.filter(s => s.status === 'pending').length})</h3>
+                  {swaps.filter(s => s.status === 'pending').map(sw => (
+                    <div key={sw.id} className="bg-slate-800 border border-amber-500/40 rounded-2xl p-4 shadow-md space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-white text-xs">{sw.requester} 提出的換班/請假</span>
+                        <span className="text-[10px] bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded-full font-bold">審核中</span>
+                      </div>
+                      <div className="text-xs text-slate-300 space-y-0.5">
+                        <div>目標日期：{sw.targetDate} ({sw.roleLabel})</div>
+                        <div>請假事由：{sw.reason}</div>
+                      </div>
+
+                      {currentUser.role === 'admin' ? (
+                        <div className="flex space-x-2 pt-2 border-t border-slate-700">
+                          <button onClick={() => handleUpdateSwapStatus(sw.id, 'approved')} className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white text-xs py-1.5 rounded-lg font-bold transition">
+                            ✓ 同意核准
+                          </button>
+                          <button onClick={() => handleUpdateSwapStatus(sw.id, 'rejected')} className="flex-1 bg-rose-600 hover:bg-rose-500 text-white text-xs py-1.5 rounded-lg font-bold transition">
+                            ✕ 駁回申請
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="text-[10px] text-slate-400 pt-1 border-t border-slate-700">等待總召確認中...</div>
+                      )}
+                    </div>
+                  ))}
+                  {swaps.filter(s => s.status === 'pending').length === 0 && (
+                    <div className="text-xs text-slate-500 text-center py-3 bg-slate-800/40 rounded-xl border border-slate-700/60">目前沒有等待審核的申請</div>
+                  )}
+                </div>
+
+                <div className="space-y-3 pt-4 border-t border-slate-700">
+                  <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">📋 歷史審核紀錄</h3>
+                  <div className="space-y-2">
+                    {swaps.filter(s => s.status !== 'pending').map(sw => (
+                      <div key={sw.id} className="bg-slate-900/60 border border-slate-700/70 rounded-xl p-3.5 flex items-center justify-between">
+                        <div>
+                          <div className="flex items-center space-x-2 mb-1">
+                            <span className="font-bold text-white text-xs">{sw.requester}</span>
+                            <span className="text-[10px] text-slate-400">({sw.targetDate} - {sw.roleLabel})</span>
+                          </div>
+                          <div className="text-[11px] text-slate-300">事由：{sw.reason}</div>
+                        </div>
+                        <div>
+                          <span className={`text-[10px] px-2.5 py-1 rounded-full font-bold ${
+                            sw.status === 'approved' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
+                          }`}>
+                            {sw.status === 'approved' ? '✓ 已核准' : '✕ 已駁回'}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                    {swaps.filter(s => s.status !== 'pending').length === 0 && (
+                      <div className="text-xs text-slate-500 text-center py-4 bg-slate-800/40 rounded-xl border border-slate-700/60">尚無歷史審核紀錄</div>
+                    )}
+                  </div>
+                </div>
+
+              </div>
+            )}
+
+            {activeTab === 'admin' && currentUser.role === 'admin' && (
+              <div className="space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div>
+                    <h2 className="text-lg font-bold text-white">成員與權限發放 (總召專區)</h2>
+                  </div>
+                  <button onClick={() => { setEditingMemberData(null); setAvatarBase64(''); setIsPersonalSettings(false); setIsMemberModalOpen(true); }} className="bg-indigo-600 text-white text-xs px-3 py-2 rounded-xl font-medium flex items-center justify-center space-x-1">
+                    <i data-lucide="user-plus" className="w-4 h-4"></i>
+                    <span>+ 新增成員</span>
+                  </button>
+                </div>
+
+                <div className="relative">
+                  <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                    <i data-lucide="search" className="w-4 h-4"></i>
+                  </span>
+                  <input
+                    type="text"
+                    value={memberSearchQuery}
+                    onChange={(e) => setMemberSearchQuery(e.target.value)}
+                    placeholder="輸入成員姓名或職稱快速搜尋..."
+                    className="w-full bg-slate-800 border border-slate-700 rounded-xl pl-9 pr-4 py-2.5 text-xs text-white focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+
+                <div className="bg-slate-800 border border-slate-700 rounded-2xl p-4 space-y-3">
+                  {sortedMembers
+                    .filter(m => m.name.toLowerCase().includes(memberSearchQuery.toLowerCase()) || m.title.toLowerCase().includes(memberSearchQuery.toLowerCase()))
+                    .map(m => (
+                    <div key={m.id} className="flex items-center justify-between py-3 border-b border-slate-700/60 last:border-none gap-2">
+                      <div className="flex items-center space-x-3 overflow-hidden">
+                        {m.avatar ? (
+                          <img src={m.avatar} alt="Avatar" className="w-10 h-10 rounded-full object-cover border border-slate-600 flex-shrink-0" />
+                        ) : (
+                          <div className="w-10 h-10 rounded-full bg-slate-700 border border-slate-600 flex items-center justify-center text-slate-300 font-bold text-sm flex-shrink-0">
+                            {m.name.charAt(0)}
+                          </div>
+                        )}
+                        <div className="overflow-hidden">
+                          <div className="font-bold text-white text-xs flex items-center space-x-2">
+                            <span>{m.name}</span>
+                            <span className={`text-[9px] px-2 py-0.5 rounded-full font-bold ${
+                              m.role === 'admin' ? 'bg-emerald-500/20 text-emerald-300' :
+                              m.role === 'leader' ? 'bg-amber-500/20 text-amber-300' :
+                              'bg-blue-500/20 text-blue-300'
+                            }`}>
+                              {m.role === 'admin' ? '老師/總召' : m.role === 'leader' ? '組長' : '組員/實習生'}
+                            </span>
+                          </div>
+                          <div className="text-[11px] text-slate-400 truncate">{m.title}（密碼：<code className="text-amber-300 font-mono">{m.password}</code>）</div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center space-x-2 flex-shrink-0">
+                        <select
+                          value={m.role}
+                          onChange={async (e) => {
+                            const newRole = e.target.value;
+                            const updated = { ...m, role: newRole };
+                            try {
+                              if (db) {
+                                const { doc, setDoc } = window.FirebaseSDK;
+                                await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'members', m.id), updated);
+                              }
+                            } catch (err) {}
+                            setMembers(prev => prev.map(item => item.id === m.id ? updated : item));
+                            showToast(`已更新 ${m.name} 權限`);
+                          }}
+                          className="bg-slate-900 border border-slate-700 text-xs text-white rounded p-1.5 focus:outline-none"
+                        >
+                          <option value="member">組員/實習生</option>
+                          <option value="leader">組長</option>
+                          <option value="admin">老師/總召</option>
+                        </select>
+
+                        <button onClick={() => { setEditingMemberData(m); setIsPersonalSettings(false); setAvatarBase64(''); setIsMemberModalOpen(true); }} className="bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs px-2.5 py-1.5 rounded-lg">編輯</button>
+                        {m.id !== currentUser.id && (
+                          <button onClick={() => handleDeleteMember(m.id, m.name)} className="bg-rose-900/40 hover:bg-rose-900 text-rose-300 text-xs px-2.5 py-1.5 rounded-lg border border-rose-500/30">刪除</button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+          </main>
+
+          {isSuggestionModalOpen && (
+            <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+              <div className="bg-slate-800 border border-slate-700 rounded-2xl w-full max-w-md p-5 shadow-2xl space-y-3">
+                <div className="flex items-center justify-between border-b border-slate-700 pb-2">
+                  <h3 className="font-bold text-white text-sm">發布組長公告與建議</h3>
+                  <button onClick={() => setIsSuggestionModalOpen(false)} className="text-slate-400"><i data-lucide="x" className="w-5 h-5"></i></button>
+                </div>
+                <form onSubmit={handlePostSuggestion} className="space-y-3 text-xs">
+                  <div>
+                    <label className="block text-slate-400 mb-1">公告內容 / 建議回報</label>
+                    <textarea name="content" rows="4" required placeholder="請輸入要交辦的事項或建議..." className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-white focus:outline-none focus:border-indigo-500"></textarea>
+                  </div>
+                  <div className="flex justify-end space-x-2 pt-2 border-t border-slate-700">
+                    <button type="button" onClick={() => setIsSuggestionModalOpen(false)} className="px-3 py-1.5 bg-slate-700 text-slate-300 rounded-xl">取消</button>
+                    <button type="submit" className="px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-white rounded-xl font-bold">確認發布</button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+
+          {isEditingSchedule && editingScheduleData && (
+            <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+              <div className="bg-slate-800 border border-slate-700 rounded-2xl w-full max-w-lg p-5 shadow-2xl space-y-4 max-h-[90vh] flex flex-col">
+                <div className="flex items-center justify-between border-b border-slate-700 pb-3 flex-shrink-0">
+                  <h3 className="font-bold text-white text-base">編輯工作人員排班 (分組/跨組調度)</h3>
+                  <button onClick={() => setIsEditingSchedule(false)} className="text-slate-400 hover:text-white"><i data-lucide="x" className="w-5 h-5"></i></button>
+                </div>
+                <form onSubmit={handleSaveScheduleSubmit} className="space-y-4 text-xs overflow-y-auto pr-1 custom-scrollbar">
+                  <div>
+                    <label className="block text-slate-400 mb-1">朝會 / 活動名稱</label>
+                    <input value={editingScheduleData.title || ''} onChange={(e) => setEditingScheduleData({...editingScheduleData, title: e.target.value})} required className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-slate-400 mb-1">日期</label>
+                      <input type="date" value={editingScheduleData.date || ''} onChange={(e) => setEditingScheduleData({...editingScheduleData, date: e.target.value})} required className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white" />
+                    </div>
+                    <div>
+                      <label className="block text-slate-400 mb-1">時間</label>
+                      <input value={editingScheduleData.time || ''} onChange={(e) => setEditingScheduleData({...editingScheduleData, time: e.target.value})} required className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white" />
+                    </div>
+                  </div>
+
+                  <div className="space-y-4 border-t border-slate-700 pt-3">
+                    <span className="font-bold text-indigo-400 block text-xs">指派崗位人員（可複選）：</span>
+                    {DUTY_ROLES.map(role => {
+                      const assignments = editingScheduleData.assignments || {};
+                      const assignedIds = Array.isArray(assignments[role.key]) ? assignments[role.key] : [];
+                      const isShowAll = !!showAllForRole[role.key];
+                      
+                      const deptMembers = members.filter(m => m.dept === role.deptKey || m.dept === 'admin');
+                      
+                      const roleOrderMap = { admin: 1, director: 2, audio: 3, cam1: 4, cam2: 5, slides: 6, intern: 7, member: 8 };
+                      const fullListSorted = [...members].sort((a, b) => (roleOrderMap[a.dept] || 99) - (roleOrderMap[b.dept] || 99));
+                      const renderList = isShowAll ? fullListSorted : deptMembers;
+
+                      return (
+                        <div key={role.key} className="bg-slate-900/80 p-3 rounded-xl border border-slate-700 space-y-2">
+                          <div className="flex items-center justify-between text-xs font-bold text-slate-200">
+                            <span className="flex items-center">
+                              <span>{role.label}</span>
+                              <span className="ml-2 text-[10px] bg-slate-800 text-slate-400 px-2 py-0.5 rounded font-normal">已選 {assignedIds.length} 人</span>
+                            </span>
+                            <button type="button" onClick={() => setShowAllForRole({ ...showAllForRole, [role.key]: !isShowAll })} className="text-[11px] text-indigo-400 underline">
+                              {isShowAll ? '僅顯示本組成員' : '+ 跨組支援'}
+                            </button>
+                          </div>
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 pt-1">
+                            {renderList.map(m => {
+                              const isChecked = assignedIds.includes(m.id);
+                              return (
+                                <button type="button" key={m.id} onClick={() => handleToggleMemberAssignment(role.key, m.id)} className={`p-2 rounded-lg text-xs flex items-center justify-between border transition-all ${isChecked ? 'bg-indigo-600 text-white font-bold border-indigo-400' : 'bg-slate-800 text-slate-300 border-slate-700'}`}>
+                                  <div className="truncate text-left">
+                                    <div className="truncate">{m.name}</div>
+                                    <div className={`text-[9px] ${isChecked ? 'text-indigo-200' : 'text-slate-400'}`}>{m.title}</div>
+                                  </div>
+                                  <span className={`text-[10px] ml-1 px-1 rounded ${isChecked ? 'bg-indigo-700 text-white' : 'text-slate-500'}`}>{isChecked ? '✓' : '+'}</span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <div className="flex justify-end space-x-2 pt-3 border-t border-slate-700 flex-shrink-0">
+                    <button type="button" onClick={() => setIsEditingSchedule(false)} className="px-4 py-2 bg-slate-700 text-slate-300 rounded-xl">取消</button>
+                    <button type="submit" className="px-4 py-2 bg-indigo-600 text-white rounded-xl font-bold">儲存並即時同步</button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+
+          {isSwapModalOpen && (
+            <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+              <div className="bg-slate-800 border border-slate-700 rounded-2xl w-full max-w-sm p-5 shadow-2xl space-y-3">
+                <div className="flex items-center justify-between border-b border-slate-700 pb-2">
+                  <h3 className="font-bold text-white text-sm">請假 / 換班申請</h3>
+                  <button onClick={() => setIsSwapModalOpen(false)} className="text-slate-400"><i data-lucide="x" className="w-5 h-5"></i></button>
+                </div>
+                <form onSubmit={handleRequestSwap} className="space-y-3 text-xs">
+                  <div>
+                    <label className="block text-slate-400 mb-1">目標日期 (請選擇您被排程的班)</label>
+                    <select name="targetDate" required className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white">
+                      {userScheduledDates.length > 0 ? (
+                        userScheduledDates.map((item, idx) => (
+                          <option key={idx} value={item.date}>{item.date} - {item.title}</option>
+                        ))
+                      ) : (
+                        <option value="" disabled>目前您近期無排程班表</option>
+                      )}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-slate-400 mb-1">工作崗位</label>
+                    <select name="roleLabel" className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2 text-white">
+                      {DUTY_ROLES.map(r => <option key={r.key} value={r.label}>{r.label}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-slate-400 mb-1">請假理由</label>
+                    <textarea name="reason" rows="2" required placeholder="說明事由..." className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2 text-white"></textarea>
+                  </div>
+                  <div className="flex justify-end space-x-2 pt-2 border-t border-slate-700">
+                    <button type="button" onClick={() => setIsSwapModalOpen(false)} className="px-3 py-1.5 bg-slate-700 text-slate-300 rounded-xl">取消</button>
+                    <button type="submit" className="px-3 py-1.5 bg-indigo-600 text-white rounded-xl">送出申請</button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+
+          {isRepairModalOpen && (
+            <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+              <div className="bg-slate-800 border border-slate-700 rounded-2xl w-full max-w-sm p-5 shadow-2xl space-y-3">
+                <div className="flex items-center justify-between border-b border-slate-700 pb-2">
+                  <h3 className="font-bold text-white text-sm">設備報修</h3>
+                  <button onClick={() => setIsRepairModalOpen(false)} className="text-slate-400"><i data-lucide="x" className="w-5 h-5"></i></button>
+                </div>
+                <form onSubmit={handleReportRepair} className="space-y-3 text-xs">
+                  <div>
+                    <label className="block text-slate-400 mb-1">設備名稱</label>
+                    <input name="item" required placeholder="例：Cam1 腳架" className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2 text-white" />
+                  </div>
+                  <div>
+                    <label className="block text-slate-400 mb-1">狀況描述</label>
+                    <textarea name="issue" rows="2" required placeholder="說明問題..." className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2 text-white"></textarea>
+                  </div>
+                  <div className="flex justify-end space-x-2 pt-2 border-t border-slate-700">
+                    <button type="button" onClick={() => setIsRepairModalOpen(false)} className="px-3 py-1.5 bg-slate-700 text-slate-300 rounded-xl">取消</button>
+                    <button type="submit" className="px-3 py-1.5 bg-rose-600 text-white rounded-xl">提交</button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+
+          {isMemberModalOpen && (
+            <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+              <div className="bg-slate-800 border border-slate-700 rounded-2xl w-full max-w-sm p-5 shadow-2xl space-y-3">
+                <div className="flex items-center justify-between border-b border-slate-700 pb-2">
+                  <h3 className="font-bold text-white text-sm">
+                    {isPersonalSettings ? '個人設定 (修改姓名/頭貼/密碼)' : (editingMemberData ? '編輯成員資料' : '新增成員')}
+                  </h3>
+                  <button onClick={() => setIsMemberModalOpen(false)} className="text-slate-400"><i data-lucide="x" className="w-5 h-5"></i></button>
+                </div>
+                <form onSubmit={handleSaveMemberSubmit} className="space-y-3 text-xs">
+                  <div>
+                    <label className="block text-slate-400 mb-1">姓名</label>
+                    <input name="name" defaultValue={editingMemberData?.name || ''} required placeholder="例：許小華" className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2 text-white" />
+                  </div>
+
+                  {!isPersonalSettings && (
+                    <>
+                      <div>
+                        <label className="block text-slate-400 mb-1">所屬組別</label>
+                        <select name="dept" defaultValue={editingMemberData?.dept || 'director'} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2 text-white">
+                          <option value="admin">總召辦公室</option>
+                          <option value="director">導播組</option>
+                          <option value="audio">音控組</option>
+                          <option value="cam1">CAM1 攝影組</option>
+                          <option value="cam2">CAM2 攝影組</option>
+                          <option value="slides">簡報組</option>
+                          <option value="intern">實習生 / 支援</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-slate-400 mb-1">頭銜 / 職務</label>
+                        <input name="title" defaultValue={editingMemberData?.title || '直播實習生'} required placeholder="例：導播組長、直播實習生" className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2 text-white" />
+                      </div>
+                    </>
+                  )}
+
+                  <div>
+                    <label className="block text-slate-400 mb-1">上傳大頭貼照片檔案</label>
+                    <input type="file" accept="image/*" onChange={handleImageUpload} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-1.5 text-slate-300 text-xs file:mr-3 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-indigo-650 file:text-white hover:file:bg-indigo-500" />
+                  </div>
+
+                  <div>
+                    <label className="block text-slate-400 mb-1">登入密碼</label>
+                    <input name="password" defaultValue={editingMemberData?.password || ''} required placeholder="例：31S999" className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2 text-white font-mono" />
+                  </div>
+
+                  {!isPersonalSettings && currentUser.role === 'admin' && (
+                    <div>
+                      <label className="block text-slate-400 mb-1">系統權限層級</label>
+                      <select name="role" defaultValue={editingMemberData?.role || 'member'} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2 text-white">
+                        <option value="member">組員 / 實習生</option>
+                        <option value="leader">組長</option>
+                        <option value="admin">老師 / 總召</option>
+                      </select>
+                    </div>
+                  )}
+
+                  <div className="flex justify-end space-x-2 pt-2 border-t border-slate-700">
+                    <button type="button" onClick={() => setIsMemberModalOpen(false)} className="px-3 py-1.5 bg-slate-700 text-slate-300 rounded-xl">取消</button>
+                    <button type="submit" className="px-3 py-1.5 bg-indigo-600 text-white rounded-xl font-bold">確認儲存</button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+
+        </div>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
 </body>
 </html>
