@@ -38,10 +38,15 @@
 
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap');
+    html { font-size: 17px; }
     body {
       font-family: 'Noto Sans TC', sans-serif;
       -webkit-tap-highlight-color: transparent;
+      line-height: 1.55;
     }
+    .text-\[9px\] { font-size: 0.68rem !important; }
+    .text-\[10px\] { font-size: 0.74rem !important; }
+    .text-\[11px\] { font-size: 0.80rem !important; }
     .custom-scrollbar::-webkit-scrollbar {
       width: 4px;
       height: 4px;
@@ -165,11 +170,11 @@
     const INITIAL_SCHEDULES = [];
 
     const INITIAL_SOP = {
-      director: { title: '導播 SOP', items: ['07:20 前抵達導播室，開啟總電源與 OBS', '測試畫面切換'] },
-      audio: { title: '音控 SOP', items: ['07:25 開啟混音器與麥克風', '檢查電池電量'] },
-      cam1: { title: 'CAM1 SOP', items: ['設置於中央平台，調整水平儀'] },
-      cam2: { title: 'CAM2 SOP', items: ['設置側邊特寫角度'] },
-      slides: { title: '簡報 SOP', items: ['確認今日朝會 PPT 與名單'] }
+      director: { title: '導播 操作說明與注意事項', items: ['07:20 前抵達導播室，開啟總電源與 OBS', '測試畫面切換'] },
+      audio: { title: '音控 操作說明與注意事項', items: ['07:25 開啟混音器與麥克風', '檢查電池電量'] },
+      cam1: { title: 'CAM1 操作說明與注意事項', items: ['設置於中央平台，調整水平儀'] },
+      cam2: { title: 'CAM2 操作說明與注意事項', items: ['設置側邊特寫角度'] },
+      slides: { title: '簡報 操作說明與注意事項', items: ['確認今日朝會 PPT 與名單'] }
     };
 
     function App() {
@@ -334,7 +339,7 @@
           }
         }, (err) => {} ));
 
-        // SOP 即時監聽
+        // 操作說明與注意事項 即時監聽
         unsubs.push(onSnapshot(doc(sopRef, 'main'), (snap) => {
           if (snap.exists() && snap.data().content) {
             setSopData(snap.data().content);
@@ -466,9 +471,9 @@
           }
         };
 
-        syncToCloud('sops', 'main', { content: updatedSop }, 'SOP 同步失敗，請稍後重試');
+        syncToCloud('sops', 'main', { content: updatedSop }, '操作說明與注意事項 同步失敗，請稍後重試');
         setSopData(updatedSop);
-        showToast('SOP 已成功更新！');
+        showToast('操作說明與注意事項 已成功更新！');
         setEditingSopKey(null);
       };
 
@@ -594,6 +599,19 @@
         syncToCloud('swaps', swapId, updated, '審核結果同步失敗');
         setSwaps(prev => prev.map(s => s.id === swapId ? updated : s));
         showToast(`已${newStatus === 'approved' ? '核准' : '駁回'}該請假申請！`);
+      };
+
+      const handleDeleteSwapHistory = async (swapId) => {
+        if (!isHighPrivilege(currentUser?.role)) {
+          showToast('只有最高權限可以刪除歷史假單審核紀錄', 'error');
+          return;
+        }
+        if (!confirm('確定要刪除這筆歷史假單審核紀錄嗎？刪除後無法復原。')) return;
+        try {
+          await deleteFromCloud('swaps', swapId, '歷史假單刪除同步失敗，資料尚未刪除');
+          setSwaps(prev => prev.filter(s => s.id !== swapId));
+          showToast('歷史假單審核紀錄已刪除');
+        } catch (err) {}
       };
 
       const handleReportRepair = async (e) => {
@@ -1235,7 +1253,7 @@
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {DUTY_ROLES.map(role => {
-                    const sopObj = sopData[role.key] || { title: role.label + ' SOP', items: [] };
+                    const sopObj = sopData[role.key] || { title: role.label + ' 操作說明與注意事項', items: [] };
                     const isEditing = editingSopKey === role.key;
 
                     return (
@@ -1374,7 +1392,7 @@
                   if (!canViewHistory && myHistory.length === 0) return null;
                   return <div className="space-y-3 pt-4 border-t border-slate-700">
                     <div className="flex items-center justify-between"><div><h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">📋 歷史審核紀錄</h3><p className="text-[10px] text-slate-500 mt-1">{canViewHistory ? '老師 / 總召可查看全部請假/換班歷史' : '僅顯示你本人提出的歷史申請'}</p></div><span className="text-[10px] text-slate-500">{history.length} 筆</span></div>
-                    <div className="space-y-2">{history.map(sw => <div key={sw.id} className="bg-slate-900/60 border border-slate-700/70 rounded-xl p-3.5 flex items-center justify-between gap-3"><div className="min-w-0"><div className="flex items-center space-x-2 mb-1"><span className="font-bold text-white text-xs">{sw.requester}</span><span className="text-[10px] text-slate-400">({sw.targetDate} - {sw.roleLabel})</span></div><div className="text-[11px] text-slate-300">事由：{sw.reason}</div></div><span className={`flex-shrink-0 text-[10px] px-2.5 py-1 rounded-full font-bold ${sw.status === 'approved' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-rose-500/20 text-rose-400 border border-rose-500/30'}`}>{sw.status === 'approved' ? '✓ 已核准' : '✕ 已駁回'}</span></div>)}{history.length === 0 && <div className="text-xs text-slate-500 text-center py-4 bg-slate-800/40 rounded-xl border border-slate-700/60">尚無可查看的歷史紀錄</div>}</div>
+                    <div className="space-y-2">{history.map(sw => <div key={sw.id} className="bg-slate-900/60 border border-slate-700/70 rounded-xl p-3.5 flex items-center justify-between gap-3"><div className="min-w-0"><div className="flex items-center space-x-2 mb-1"><span className="font-bold text-white text-xs">{sw.requester}</span><span className="text-[10px] text-slate-400">({sw.targetDate} - {sw.roleLabel})</span></div><div className="text-[11px] text-slate-300">事由：{sw.reason}</div></div><div className="flex items-center gap-2 flex-shrink-0"><span className={`text-[10px] px-2.5 py-1 rounded-full font-bold ${sw.status === 'approved' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-rose-500/20 text-rose-400 border border-rose-500/30'}`}>{sw.status === 'approved' ? '✓ 已核准' : '✕ 已駁回'}</span>{isHighPrivilege(currentUser.role) && <button type="button" onClick={() => handleDeleteSwapHistory(sw.id)} className="text-[10px] text-rose-300 bg-rose-500/10 border border-rose-500/30 px-2 py-1 rounded-lg hover:bg-rose-500/20">刪除</button>}</div></div>)}{history.length === 0 && <div className="text-xs text-slate-500 text-center py-4 bg-slate-800/40 rounded-xl border border-slate-700/60">尚無可查看的歷史紀錄</div>}</div>
                   </div>;
                 })()}
 
@@ -1419,7 +1437,7 @@
                         </div>
                       </div>
                       <div className="space-y-2 border-t border-slate-700/70 pt-3">
-                        <div className="flex items-center gap-2 text-[11px] text-slate-300"><i data-lucide="graduation-cap" className="w-3.5 h-3.5 text-slate-500"></i><span className="text-slate-500">班級</span><span className="truncate">{m.className || '未填寫'}</span></div>
+                        <div className="flex items-center gap-2 text-[11px] text-slate-300"><i data-lucide="graduation-cap" className="w-3.5 h-3.5 text-slate-500"></i><span className="text-slate-500">{m.role === 'teacher' ? '處室' : '班級'}</span><span className="truncate">{m.className || '未填寫'}</span></div>
                         <div className="flex items-center gap-2 text-[11px] text-slate-300"><i data-lucide="mail" className="w-3.5 h-3.5 text-slate-500"></i><span className="text-slate-500">Email</span><span className="truncate">{m.email || '未填寫'}</span></div>
                       </div>
                       {isHighPrivilege(currentUser.role) && (
@@ -1746,7 +1764,7 @@
                         <input name="title" defaultValue={editingMemberData?.title || '直播實習生'} required placeholder="例：導播組長、直播實習生" className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2 text-white" />
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                        <div><label className="block text-slate-400 mb-1">班級</label><input name="className" defaultValue={editingMemberData?.className || ''} placeholder="例：高二乙" className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2 text-white" /></div>
+                        <div><label className="block text-slate-400 mb-1">{editingMemberData?.role === 'teacher' ? '處室' : '班級'}</label><input name="className" defaultValue={editingMemberData?.className || ''} placeholder={editingMemberData?.role === 'teacher' ? '例：學務處、教務處' : '例：高二乙'} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2 text-white" /></div>
                         <div><label className="block text-slate-400 mb-1">Email</label><input type="email" name="email" defaultValue={editingMemberData?.email || ''} placeholder="name@example.com" className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2 text-white" /></div>
                       </div>
                     </>
