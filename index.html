@@ -183,6 +183,7 @@
       const [isEditingSchedule, setIsEditingSchedule] = useState(false);
       const [editingScheduleData, setEditingScheduleData] = useState(null);
       const [showAllForRole, setShowAllForRole] = useState({});
+      const [activeDutyRole, setActiveDutyRole] = useState('director');
 
       const [isSwapModalOpen, setIsSwapModalOpen] = useState(false);
       const [isRepairModalOpen, setIsRepairModalOpen] = useState(false);
@@ -476,7 +477,7 @@
           });
         }
         setShowAllForRole({});
-        setIsEditingSchedule(true);
+        setActiveDutyRole('director'); setShowAllForRole({}); setIsEditingSchedule(true);
       };
 
       const handleToggleMemberAssignment = (roleKey, memberId) => {
@@ -1550,49 +1551,67 @@
                     </div>
                   </div>
 
-                  <div className="space-y-4 border-t border-slate-700 pt-3">
-                    <span className="font-bold text-indigo-400 block text-xs">指派崗位人員（可複選）：</span>
-                    {DUTY_ROLES.map(role => {
+                  <div className="space-y-3 border-t border-slate-700 pt-3">
+                    <div>
+                      <span className="font-bold text-indigo-400 block text-xs mb-2">指派崗位人員</span>
+                      <div className="bg-slate-900/80 rounded-xl border border-slate-700 p-2">
+                        <label className="block text-[10px] text-slate-400 mb-1.5">① 先選擇組別</label>
+                        <select value={activeDutyRole} onChange={e => setActiveDutyRole(e.target.value)} className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-white text-xs outline-none focus:border-indigo-500">
+                          {DUTY_ROLES.map(role => {
+                            const count = Array.isArray((editingScheduleData.assignments || {})[role.key]) ? (editingScheduleData.assignments || {})[role.key].length : 0;
+                            return <option key={role.key} value={role.key}>{role.label}{count ? `（已選 ${count} 人）` : ''}</option>;
+                          })}
+                        </select>
+                      </div>
+                    </div>
+
+                    {(() => {
+                      const role = DUTY_ROLES.find(r => r.key === activeDutyRole) || DUTY_ROLES[0];
                       const assignments = editingScheduleData.assignments || {};
                       const assignedIds = Array.isArray(assignments[role.key]) ? assignments[role.key] : [];
                       const isShowAll = !!showAllForRole[role.key];
-                      
                       const deptMembers = members.filter(m => m.dept === role.deptKey || m.dept === 'admin');
-                      
-                      const roleOrderMap = { admin: 1, director: 2, audio: 3, cam1: 4, cam2: 5, slides: 6, intern: 7, member: 8 };
-                      const fullListSorted = [...members].sort((a, b) => (roleOrderMap[a.dept] || 99) - (roleOrderMap[b.dept] || 99));
-                      const renderList = isShowAll ? fullListSorted : deptMembers;
+                      const renderList = isShowAll ? members : deptMembers;
+                      const selectedMembers = assignedIds.map(id => members.find(m => m.id === id)).filter(Boolean);
 
-                      return (
-                        <div key={role.key} className="bg-slate-900/80 p-3 rounded-xl border border-slate-700 space-y-2">
-                          <div className="flex items-center justify-between text-xs font-bold text-slate-200">
-                            <span className="flex items-center">
-                              <span>{role.label}</span>
-                              <span className="ml-2 text-[10px] bg-slate-800 text-slate-400 px-2 py-0.5 rounded font-normal">已選 {assignedIds.length} 人</span>
-                            </span>
-                            <button type="button" onClick={() => setShowAllForRole({ ...showAllForRole, [role.key]: !isShowAll })} className="text-[11px] text-indigo-400 underline">
-                              {isShowAll ? '僅顯示本組成員' : '+ 跨組支援'}
-                            </button>
-                          </div>
-                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 pt-1">
-                            {renderList.map(m => {
-                              const isChecked = assignedIds.includes(m.id);
-                              return (
-                                <button type="button" key={m.id} onClick={() => handleToggleMemberAssignment(role.key, m.id)} className={`p-2 rounded-lg text-xs flex items-center justify-between border transition-all ${isChecked ? 'bg-indigo-600 text-white font-bold border-indigo-400' : 'bg-slate-800 text-slate-300 border-slate-700'}`}>
-                                  <div className="truncate text-left">
-                                    <div className="truncate">{m.name}</div>
-                                    <div className={`text-[9px] ${isChecked ? 'text-indigo-200' : 'text-slate-400'}`}>{m.title}</div>
-                                  </div>
-                                  <span className={`text-[10px] ml-1 px-1 rounded ${isChecked ? 'bg-indigo-700 text-white' : 'text-slate-500'}`}>{isChecked ? '✓' : '+'}</span>
-                                </button>
-                              );
-                            })}
-                          </div>
+                      return <div className="bg-slate-900/80 p-3 rounded-xl border border-slate-700 space-y-2">
+                        <div className="flex items-center justify-between text-xs font-bold text-slate-200">
+                          <span>② 選擇 {role.label} 人員 <span className="ml-1 text-[10px] bg-slate-800 text-slate-400 px-2 py-0.5 rounded font-normal">已選 {assignedIds.length} 人</span></span>
+                          <button type="button" onClick={() => setShowAllForRole({ ...showAllForRole, [role.key]: !isShowAll })} className="text-[11px] text-indigo-400 underline">
+                            {isShowAll ? '僅顯示本組成員' : '+ 跨組支援'}
+                          </button>
                         </div>
-                      );
-                    })}
-                  </div>
 
+                        {selectedMembers.length > 0 && <div className="rounded-lg bg-indigo-950/60 border border-indigo-700/50 p-2">
+                          <div className="text-[10px] text-indigo-300 mb-1">目前 {role.label} 已選：</div>
+                          <div className="flex flex-wrap gap-1.5">
+                            {selectedMembers.map(m => <span key={m.id} className="inline-flex items-center gap-1 bg-indigo-600/80 text-white rounded-md px-2 py-1 text-[10px]">✓ {m.name}</span>)}
+                          </div>
+                        </div>}
+
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 pt-1">
+                          {renderList.map(m => {
+                            const isChecked = assignedIds.includes(m.id);
+                            return <button type="button" key={m.id} onClick={() => handleToggleMemberAssignment(role.key, m.id)} className={`p-2 rounded-lg text-xs flex items-center justify-between border transition-all ${isChecked ? 'bg-indigo-600 text-white font-bold border-indigo-400' : 'bg-slate-800 text-slate-300 border-slate-700'}`}>
+                              <div className="truncate text-left"><div className="truncate">{m.name}</div><div className={`text-[9px] ${isChecked ? 'text-indigo-200' : 'text-slate-400'}`}>{m.title}</div></div>
+                              <span className={`text-[10px] ml-1 px-1 rounded ${isChecked ? 'bg-indigo-700 text-white' : 'text-slate-500'}`}>{isChecked ? '✓' : '+'}</span>
+                            </button>;
+                          })}
+                        </div>
+                      </div>;
+                    })()}
+
+                    <div className="rounded-lg border border-slate-700 bg-slate-900/50 px-3 py-2">
+                      <div className="text-[10px] text-slate-400 mb-1">所有組別的已選人員會保留，切換組別不會取消：</div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {DUTY_ROLES.flatMap(role => ((editingScheduleData.assignments || {})[role.key] || []).map(id => {
+                          const m = members.find(x => x.id === id);
+                          return m ? <span key={`${role.key}-${id}`} className="inline-flex items-center gap-1 bg-slate-800 text-slate-300 border border-slate-700 rounded-md px-2 py-1 text-[10px]">{role.label} · {m.name}</span> : null;
+                        })).filter(Boolean)}
+                        {DUTY_ROLES.every(role => !((editingScheduleData.assignments || {})[role.key] || []).length) && <span className="text-[10px] text-slate-500">尚未選擇人員</span>}
+                      </div>
+                    </div>
+                  </div>
                   <div className="flex justify-end space-x-2 pt-3 border-t border-slate-700 flex-shrink-0">
                     <button type="button" onClick={() => setIsEditingSchedule(false)} className="px-4 py-2 bg-slate-700 text-slate-300 rounded-xl">取消</button>
                     <button type="submit" disabled={isSaving} className="px-4 py-2 bg-indigo-600 text-white rounded-xl font-bold disabled:opacity-50 disabled:cursor-not-allowed">{isSaving ? '同步中…' : '儲存並即時同步'}</button>
