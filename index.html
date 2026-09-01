@@ -147,7 +147,8 @@
       { key: 'audio', label: '音控', deptKey: 'audio', icon: 'sliders' },
       { key: 'cam1', label: 'CAM1 攝影', deptKey: 'cam1', icon: 'camera' },
       { key: 'cam2', label: 'CAM2 攝影', deptKey: 'cam2', icon: 'video' },
-      { key: 'slides', label: '簡報/字卡', deptKey: 'slides', icon: 'file-text' }
+      { key: 'slides', label: '簡報/字卡', deptKey: 'slides', icon: 'file-text' },
+      { key: 'intern', label: '實習生', deptKey: 'intern', icon: 'graduation-cap' }
     ];
 
     // 權限分級：老師 / 總召同為最高權限；組員 / 實習生同為一般權限，但身分獨立顯示。
@@ -1572,10 +1573,16 @@
                     {DUTY_ROLES.map(role => {
                       const assignments = editingScheduleData.assignments || {};
                       const assignedIds = Array.isArray(assignments[role.key]) ? assignments[role.key] : [];
-                      const deptMembers = members.filter(m => m.dept === role.deptKey || m.dept === 'admin');
+                      // 老師不屬於任何班表崗位；實習生只出現在「實習生」崗位。
+                      // 總召仍可被指派，因此保留 admin；老師雖同為最高權限，不能被選入班表。
+                      const deptMembers = role.key === 'intern'
+                        ? members.filter(m => m.role === 'intern')
+                        : members.filter(m => m.role !== 'teacher' && m.role !== 'intern' && (m.dept === role.deptKey || m.role === 'admin'));
                       const selectedMembers = assignedIds.map(id => members.find(m => m.id === id)).filter(Boolean);
                       const isCrossOpen = crossSupportRole === role.key;
-                      const supportMembers = members.filter(m => m.dept === crossSupportDept || m.dept === 'admin');
+                      const supportMembers = crossSupportDept === 'intern'
+                        ? members.filter(m => m.role === 'intern')
+                        : members.filter(m => m.role !== 'teacher' && m.role !== 'intern' && (m.dept === crossSupportDept || m.role === 'admin'));
 
                       return <div key={role.key} className="bg-slate-900/80 p-3 rounded-xl border border-slate-700 space-y-2">
                         <div className="flex items-center justify-between text-xs font-bold text-slate-200">
@@ -1621,7 +1628,7 @@
                     })}
 
                     <div className="rounded-lg border border-slate-700 bg-slate-900/50 px-3 py-2">
-                      <div className="text-[10px] text-slate-400 mb-1">所有組別的已選人員會保留，切換不會取消：</div>
+                      <div className="text-[10px] text-slate-400 mb-1">所有組別的已選人員會保留，切換不會取消；老師不列入班表，實習生僅可安排在實習生崗位：</div>
                       <div className="flex flex-wrap gap-1.5">
                         {DUTY_ROLES.flatMap(role => ((editingScheduleData.assignments || {})[role.key] || []).map(id => {
                           const m = members.find(x => x.id === id);
