@@ -635,6 +635,8 @@
             role: formData.get('role'),
             title: formData.get('title'),
             dept: formData.get('dept'),
+            className: formData.get('className') || (editingMemberData ? editingMemberData.className || '' : ''),
+            email: formData.get('email') || (editingMemberData ? editingMemberData.email || '' : ''),
             avatar: finalAvatar
           };
         }
@@ -796,6 +798,7 @@
                   { id: 'sop', label: '崗位操作說明與注意事項', icon: 'clipboard-list' },
                   { id: 'repairs', label: '設備報修系統', icon: 'wrench', badge: repairs.filter(r => r.status === 'pending').length },
                   { id: 'swaps', label: '請假與換班審核', icon: 'arrow-left-right', badge: currentUser.role === 'admin' ? swaps.filter(s => s.status === 'pending').length : 0 },
+                  { id: 'members', label: '加入成員', icon: 'users-round' },
                   ...(currentUser.role === 'admin' ? [{ id: 'admin', label: '權限與成員管理', icon: 'shield-check' }] : [])
                 ].map(item => (
                   <button
@@ -1365,6 +1368,61 @@
               </div>
             )}
 
+            {activeTab === 'members' && (
+              <div className="space-y-5">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-indigo-600/20 border border-indigo-500/30 flex items-center justify-center">
+                      <i data-lucide="users-round" className="w-5 h-5 text-indigo-400"></i>
+                    </div>
+                    <div>
+                      <h2 className="text-lg font-bold text-white">加入成員</h2>
+                      <p className="text-[11px] text-slate-400">查看直播團隊所有成員資訊</p>
+                    </div>
+                  </div>
+                  {currentUser.role === 'admin' && (
+                    <button onClick={() => { setEditingMemberData(null); setAvatarBase64(''); setIsPersonalSettings(false); setIsMemberModalOpen(true); }} className="bg-indigo-600 hover:bg-indigo-500 text-white text-xs px-3.5 py-2 rounded-xl font-bold flex items-center justify-center gap-1.5 transition">
+                      <i data-lucide="user-plus" className="w-4 h-4"></i><span>加入成員</span>
+                    </button>
+                  )}
+                </div>
+
+                <div className="relative">
+                  <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500"><i data-lucide="search" className="w-4 h-4"></i></span>
+                  <input type="text" value={memberSearchQuery} onChange={(e) => setMemberSearchQuery(e.target.value)} placeholder="搜尋姓名、職務、班級或 Email..." className="w-full bg-slate-800/90 border border-slate-700 rounded-xl pl-9 pr-4 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500" />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+                  {sortedMembers.filter(m => [m.name, m.title, m.className, m.email].some(v => String(v || '').toLowerCase().includes(memberSearchQuery.toLowerCase()))).map(m => (
+                    <div key={m.id} className="glass-panel rounded-2xl p-4 border border-slate-700/70 hover:border-indigo-500/30 transition flex flex-col gap-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-11 h-11 rounded-full bg-indigo-600/20 border border-indigo-500/40 flex items-center justify-center text-indigo-300 font-bold text-lg flex-shrink-0">{m.name ? m.name.charAt(0) : '?'}</div>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h3 className="font-bold text-white text-sm truncate">{m.name}</h3>
+                            <span className={`text-[9px] px-2 py-0.5 rounded-full font-bold ${m.role === 'admin' ? 'bg-emerald-500/20 text-emerald-300' : m.role === 'leader' ? 'bg-amber-500/20 text-amber-300' : 'bg-blue-500/20 text-blue-300'}`}>{m.role === 'admin' ? '總召 / 老師' : m.role === 'leader' ? '組長' : '組員 / 實習生'}</span>
+                          </div>
+                          <p className="text-[11px] text-indigo-300 mt-0.5 truncate">{m.title || '未設定職務'}</p>
+                        </div>
+                      </div>
+                      <div className="space-y-2 border-t border-slate-700/70 pt-3">
+                        <div className="flex items-center gap-2 text-[11px] text-slate-300"><i data-lucide="graduation-cap" className="w-3.5 h-3.5 text-slate-500"></i><span className="text-slate-500">班級</span><span className="truncate">{m.className || '未填寫'}</span></div>
+                        <div className="flex items-center gap-2 text-[11px] text-slate-300"><i data-lucide="mail" className="w-3.5 h-3.5 text-slate-500"></i><span className="text-slate-500">Email</span><span className="truncate">{m.email || '未填寫'}</span></div>
+                      </div>
+                      {currentUser.role === 'admin' && (
+                        <div className="flex gap-2 pt-1">
+                          <button onClick={() => { setEditingMemberData(m); setIsPersonalSettings(false); setAvatarBase64(''); setIsMemberModalOpen(true); }} className="flex-1 bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs py-2 rounded-xl">編輯</button>
+                          {m.id !== currentUser.id && <button onClick={() => handleDeleteMember(m.id, m.name)} className="bg-rose-900/40 hover:bg-rose-900 text-rose-300 text-xs px-3 py-2 rounded-xl border border-rose-500/30">刪除</button>}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                {sortedMembers.filter(m => [m.name, m.title, m.className, m.email].some(v => String(v || '').toLowerCase().includes(memberSearchQuery.toLowerCase()))).length === 0 && <div className="glass-panel rounded-2xl p-8 text-center text-xs text-slate-500">找不到符合條件的成員</div>}
+              </div>
+            )}
+
             {activeTab === 'admin' && currentUser.role === 'admin' && (
               <div className="space-y-4">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -1640,6 +1698,10 @@
                       <div>
                         <label className="block text-slate-400 mb-1">頭銜 / 職務</label>
                         <input name="title" defaultValue={editingMemberData?.title || '直播實習生'} required placeholder="例：導播組長、直播實習生" className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2 text-white" />
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <div><label className="block text-slate-400 mb-1">班級</label><input name="className" defaultValue={editingMemberData?.className || ''} placeholder="例：高二乙" className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2 text-white" /></div>
+                        <div><label className="block text-slate-400 mb-1">Email</label><input type="email" name="email" defaultValue={editingMemberData?.email || ''} placeholder="name@example.com" className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2 text-white" /></div>
                       </div>
                     </>
                   )}
