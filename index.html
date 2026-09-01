@@ -16,9 +16,9 @@
 
   <!-- Firebase SDK Module Import -->
   <script type="module">
-    import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js';
-    import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js';
-    import { getFirestore, collection, doc, setDoc, deleteDoc, getDoc, onSnapshot } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js';
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js';
+    import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js';
+    import { getFirestore, collection, doc, setDoc, deleteDoc, getDoc, onSnapshot } from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js';
 
     window.FirebaseSDK = {
       initializeApp,
@@ -107,10 +107,27 @@
   <script type="text/babel">
     const { useState, useEffect, useMemo } = React;
 
-    const appId = typeof __app_id !== 'undefined' ? __app_id : 'live-stream-team-portal';
-    const firebaseConfig = typeof __firebase_config !== 'undefined' 
-      ? JSON.parse(__firebase_config) 
-      : { apiKey: "demo", authDomain: "demo", projectId: "demo" };
+    // ===== Firebase 設定 =====
+    // GitHub Pages 不會提供 __firebase_config，因此請把你的 Firebase Web App 設定貼在這裡。
+    // Firebase Web App 的 config 不需要隱藏；真正的安全性請交給 Firestore Rules。
+    const appId = 'live-stream-team-portal';
+    const FIREBASE_CONFIG = {
+      apiKey: 'AIzaSyCznPHShYBxsOoEPrng2e8M8Pawm1cR_ss',
+      authDomain: 'mingdao-live-team-a296b.firebaseapp.com',
+      projectId: 'mingdao-live-team-a296b',
+      storageBucket: 'mingdao-live-team-a296b.firebasestorage.app',
+      messagingSenderId: '898630746370',
+      appId: '1:898630746370:web:3b601950e2f3aa5bcec21b'
+    };
+
+    const firebaseConfig = (typeof __firebase_config !== 'undefined' && __firebase_config)
+      ? JSON.parse(__firebase_config)
+      : FIREBASE_CONFIG;
+
+    const hasRealFirebaseConfig = !!(firebaseConfig &&
+      firebaseConfig.apiKey && !String(firebaseConfig.apiKey).includes('請填入') &&
+      firebaseConfig.projectId && !String(firebaseConfig.projectId).includes('請填入') &&
+      firebaseConfig.appId && !String(firebaseConfig.appId).includes('請填入'));
 
     const INITIAL_MEMBERS = [
       { id: 'm1', name: '蔡孜鵬', password: '31V714', role: 'admin', title: '總召', dept: 'admin', avatar: '' },
@@ -206,8 +223,17 @@
       }, []);
 
       useEffect(() => {
-        if (!window.FirebaseSDK) return;
+        if (!window.FirebaseSDK) {
+          setSyncStatus('error');
+          return;
+        }
+        if (!hasRealFirebaseConfig) {
+          setSyncStatus('offline');
+          return;
+        }
         const { initializeApp, getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged, getFirestore } = window.FirebaseSDK;
+        let unsubscribe = () => {};
+        let cancelled = false;
         try {
           const app = initializeApp(firebaseConfig);
           const auth = getAuth(app);
@@ -223,18 +249,24 @@
                 await signInAnonymously(auth);
               }
             } catch (e) {
-              console.warn("Auth fallback:", e);
+              console.error('Firebase Authentication failed:', e);
+              if (!cancelled) setSyncStatus('error');
             }
           };
-          initAuth();
-          const unsubscribe = onAuthStateChanged(auth, (usr) => {
+          unsubscribe = onAuthStateChanged(auth, (usr) => {
+            if (cancelled) return;
             setAuthUser(usr);
             setSyncStatus(usr ? 'connecting' : 'offline');
+          }, (err) => {
+            console.error('Firebase Auth state error:', err);
+            if (!cancelled) setSyncStatus('error');
           });
-          return () => unsubscribe();
+          initAuth();
         } catch (err) {
-          console.error(err);
+          console.error('Firebase initialization failed:', err);
+          setSyncStatus('error');
         }
+        return () => { cancelled = true; unsubscribe(); };
       }, []);
 
       // 需求 3：支援跨裝置即時同步 (onSnapshot)
@@ -326,8 +358,25 @@
       const handleLogin = (e) => {
         e.preventDefault();
         setLoginError('');
-        const password = loginPassword.trim();
-        const foundMember = password ? members.find(m => String(m.password || '').toLowerCase() === password.toLowerCase()) : null;
+
+        // 只輸入密碼即可登入；英文字母大小寫不拘。
+        const password = String(loginPassword || '').trim().toLowerCase();
+        if (!password) {
+          setLoginError('請輸入密碼');
+          return;
+        }
+
+        // 優先使用 Firebase 即時同步到的成員資料；若資料庫剛建立、
+        // 或尚未完成第一次初始化，則以程式內的初始成員資料作為備援。
+        const allMembers = [...members];
+        for (const initial of INITIAL_MEMBERS) {
+          if (!allMembers.some(m => m.id === initial.id)) allMembers.push(initial);
+        }
+
+        const foundMember = allMembers.find(m =>
+          String(m.password || '').trim().toLowerCase() === password
+        );
+
         if (foundMember) {
           setCurrentUser(foundMember);
           setLoginPassword('');
@@ -370,12 +419,16 @@
       };
 
       const deleteFromCloud = (collectionName, id, errorMessage) => {
-        if (!db) return;
+        if (!db || !authUser) return Promise.reject(new Error('尚未連線到雲端'));
         const { doc, deleteDoc } = window.FirebaseSDK;
-        deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', collectionName, id))
+        setSyncStatus('syncing');
+        return deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', collectionName, id))
+          .then(() => { setSyncStatus('online'); return true; })
           .catch(err => {
             console.error(`Firebase delete error [${collectionName}/${id}]`, err);
+            setSyncStatus('error');
             showToast(errorMessage || '雲端刪除失敗，請稍後重試', 'error');
+            throw err;
           });
       };
 
@@ -400,11 +453,12 @@
       };
 
       const handleDeleteSuggestion = async (sugId) => {
-        if (confirm('確定要刪除這則公告/建議嗎？')) {
-          deleteFromCloud('suggestions', sugId, '公告刪除同步失敗');
+        if (!confirm('確定要刪除這則公告/建議嗎？')) return;
+        try {
+          await deleteFromCloud('suggestions', sugId, '公告刪除同步失敗，資料尚未刪除');
           setLeaderSuggestions(prev => prev.filter(s => s.id !== sugId));
           showToast('已刪除公告');
-        }
+        } catch (err) {}
       };
 
       const handleSaveSop = async (roleKey) => {
@@ -424,6 +478,10 @@
       };
 
       const handleOpenScheduleModal = (sch = null) => {
+        if (currentUser?.role !== 'admin') {
+          showToast('只有總召可以新增或編輯班表', 'error');
+          return;
+        }
         if (sch) setEditingScheduleData(JSON.parse(JSON.stringify(sch)));
         else {
           setEditingScheduleData({
@@ -452,24 +510,58 @@
 
       const handleSaveScheduleSubmit = async (e) => {
         e.preventDefault();
-        if (!editingScheduleData) return;
-        setIsSaving(false);
-        syncToCloud('schedules', editingScheduleData.id, editingScheduleData, '班表同步失敗，請稍後重試');
-        setSchedules(prev => {
-          const exists = prev.some(s => s.id === editingScheduleData.id);
-          const updated = exists ? prev.map(s => s.id === editingScheduleData.id ? editingScheduleData : s) : [...prev, editingScheduleData];
-          return updated.sort((a, b) => new Date(a.date) - new Date(b.date));
-        });
-        showToast('班表已儲存並即時同步！');
-        setIsEditingSchedule(false);
-        setEditingScheduleData(null);
+        if (!editingScheduleData || currentUser?.role !== 'admin') {
+          showToast('只有總召可以修改班表', 'error');
+          return;
+        }
+        if (!db || !authUser) {
+          showToast('Firebase 尚未連線，班表沒有儲存。', 'error');
+          setSyncStatus('error');
+          return;
+        }
+        setIsSaving(true);
+        try {
+          const scheduleToSave = { ...editingScheduleData, updatedAt: Date.now(), updatedBy: currentUser.id, updatedByName: currentUser.name };
+          await syncToCloud('schedules', scheduleToSave.id, scheduleToSave, '班表同步失敗，資料尚未儲存');
+          setSchedules(prev => {
+            const exists = prev.some(s => s.id === scheduleToSave.id);
+            const updated = exists ? prev.map(s => s.id === scheduleToSave.id ? scheduleToSave : s) : [...prev, scheduleToSave];
+            return updated.sort((a, b) => {
+              const aa = new Date(`${a.date || ''}T${(a.time || '00:00').split(' - ')[0] || '00:00'}`).getTime();
+              const bb = new Date(`${b.date || ''}T${(b.time || '00:00').split(' - ')[0] || '00:00'}`).getTime();
+              return aa - bb;
+            });
+          });
+          showToast('班表已儲存到 Firebase，其他裝置會即時更新。');
+          setIsEditingSchedule(false);
+          setEditingScheduleData(null);
+        } catch (err) {
+          // syncToCloud 已顯示錯誤；保留 Modal 讓總召可以重試
+        } finally {
+          setIsSaving(false);
+        }
       };
 
-      const handleDeleteSchedule = (scheduleId, title) => {
+      const handleDeleteSchedule = async (scheduleId, title) => {
+        if (currentUser?.role !== 'admin') {
+          showToast('只有總召可以刪除班表', 'error');
+          return;
+        }
         if (!confirm(`確定要刪除「${title || '這筆班表'}」嗎？`)) return;
-        setSchedules(prev => prev.filter(s => s.id !== scheduleId));
-        deleteFromCloud('schedules', scheduleId, '班表刪除同步失敗');
-        showToast('班表已刪除');
+        if (!db || !authUser) {
+          showToast('Firebase 尚未連線，班表沒有刪除。', 'error');
+          return;
+        }
+        setIsSaving(true);
+        try {
+          await deleteFromCloud('schedules', scheduleId, '班表刪除同步失敗，資料尚未刪除');
+          setSchedules(prev => prev.filter(s => s.id !== scheduleId));
+          showToast('班表已從 Firebase 刪除，其他裝置會同步移除。');
+        } catch (err) {
+          // 保留原資料
+        } finally {
+          setIsSaving(false);
+        }
       };
 
       const handleUpdateAnnouncement = async () => {
@@ -627,6 +719,11 @@
                 </div>
                 <h1 className="text-xl font-bold text-white tracking-wide">明道中學直播團隊系統</h1>
                 <p className="text-xs text-slate-400">請輸入個人密碼登入系統</p>
+                 {!hasRealFirebaseConfig && (
+                   <div className="mt-3 bg-amber-500/10 border border-amber-500/30 text-amber-300 rounded-xl p-3 text-left text-[11px] leading-relaxed">
+                     ⚠️ Firebase 尚未設定。這個檔案若直接放到 GitHub Pages，不會自動取得 Firebase 設定；請先在程式上方填入 Firebase Web App config，否則資料無法跨裝置保存。
+                   </div>
+                 )}
               </div>
               <form onSubmit={handleLogin} className="space-y-4 text-xs">
                 {loginError && (
@@ -697,7 +794,7 @@
               <nav className="space-y-1.5">
                 {[
                   { id: 'dashboard', label: '總覽', icon: 'layout-dashboard' },
-                  ...((currentUser.role === 'admin' || currentUser.role === 'leader') ? [{ id: 'schedules', label: '班表管理', icon: 'calendar-days' }] : []),
+                  ...(currentUser.role === 'admin' ? [{ id: 'schedules', label: '班表管理', icon: 'calendar-days' }] : []),
                   { id: 'sop', label: '崗位操作說明與注意事項', icon: 'clipboard-list' },
                   { id: 'repairs', label: '設備報修系統', icon: 'wrench', badge: repairs.filter(r => r.status === 'pending').length },
                   { id: 'swaps', label: '請假與換班審核', icon: 'arrow-left-right', badge: currentUser.role === 'admin' ? swaps.filter(s => s.status === 'pending').length : 0 },
@@ -785,13 +882,20 @@
               <div className="hidden sm:block text-right">
                 <span className="text-[10px] text-emerald-400 flex items-center justify-end font-mono mb-0.5">
                   <span className="w-2 h-2 rounded-full bg-emerald-400 mr-1 animate-pulse"></span>
-                  {syncStatus === 'online' ? 'Firebase 雲端即時同步中' : syncStatus === 'syncing' ? '正在同步雲端…' : syncStatus === 'error' ? '雲端同步異常' : '正在連線 Firebase…'}
+                  {syncStatus === 'online' ? 'Firebase 已連線・即時同步' : syncStatus === 'syncing' ? '正在同步 Firebase…' : syncStatus === 'authenticating' || syncStatus === 'connecting' ? '正在連線 Firebase…' : syncStatus === 'offline' ? 'Firebase 尚未設定' : 'Firebase 連線失敗'}
                 </span>
                 <span className="text-xs font-semibold text-slate-200">
                   {currentUser.role === 'admin' ? '最高權限' : currentUser.role === 'leader' ? '組長權限' : '組員'}
                 </span>
               </div>
             </div>
+
+            {syncStatus !== 'online' && (
+              <div className={`rounded-2xl px-4 py-3 text-xs border ${syncStatus === 'error' ? 'bg-rose-500/10 border-rose-500/30 text-rose-300' : 'bg-amber-500/10 border-amber-500/30 text-amber-300'}`}>
+                <div className="font-bold">{syncStatus === 'offline' ? 'Firebase 尚未設定' : syncStatus === 'error' ? 'Firebase 連線失敗' : 'Firebase 正在連線…'}</div>
+                <div className="mt-1 opacity-80">{!hasRealFirebaseConfig ? '請把 Firebase Web App config 填入程式最上方的 FIREBASE_CONFIG；否則刷新或換裝置後資料不會保留。' : '若長時間停留在這裡，請檢查 Firebase Authentication 的匿名登入與 Firestore Rules。'}</div>
+              </div>
+            )}
 
             <div className="bg-slate-800/90 border border-slate-700/80 rounded-2xl p-3 md:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2 shadow-sm">
               <div className="flex items-center space-x-3">
@@ -946,7 +1050,7 @@
                         全體月班表
                       </h3>
                     </div>
-                    {(currentUser.role === 'admin' || currentUser.role === 'leader') && (
+                    {currentUser.role === 'admin' && (
                       <button onClick={() => handleOpenScheduleModal(null)} className="bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-xs px-3 py-2 rounded-xl transition flex items-center space-x-1">
                         <i data-lucide="plus-circle" className="w-4 h-4"></i>
                         <span>新增班表</span>
@@ -972,7 +1076,7 @@
                             </div>
                             <h4 className="font-bold text-white text-base">{latestSchedule.title}</h4>
                           </div>
-                          {(currentUser.role === 'admin' || currentUser.role === 'leader') && (
+                          {currentUser.role === 'admin' && (
                             <button onClick={() => handleOpenScheduleModal(latestSchedule)} className="self-end sm:self-auto text-xs bg-slate-800 hover:bg-slate-700 text-indigo-300 border border-slate-700 px-3 py-1.5 rounded-xl font-medium">
                               編輯工作人員
                             </button>
@@ -1023,7 +1127,7 @@
                                 <span className="text-xs text-slate-400">{sch.time}</span>
                                 <h4 className="font-bold text-white text-xs md:text-sm">{sch.title}</h4>
                               </div>
-                              {(currentUser.role === 'admin' || currentUser.role === 'leader') && (
+                              {currentUser.role === 'admin' && (
                                 <button onClick={() => handleOpenScheduleModal(sch)} className="self-end sm:self-auto text-[11px] text-indigo-400 hover:underline">編輯人員</button>
                               )}
                             </div>
@@ -1053,7 +1157,7 @@
               </div>
             )}
 
-            {activeTab === 'schedules' && (currentUser.role === 'admin' || currentUser.role === 'leader') && (
+            {activeTab === 'schedules' && currentUser.role === 'admin' && (
               <div className="space-y-4">
                 <div className="glass-panel rounded-2xl p-4 md:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div>
@@ -1061,7 +1165,7 @@
                       <i data-lucide="calendar-days" className="w-5 h-5 text-indigo-400"></i>
                       <h2 className="text-lg font-bold text-white">班表管理</h2>
                     </div>
-                    <p className="text-xs text-slate-400 mt-1">總召／組長可新增、編輯與刪除班表；所有裝置即時同步。</p>
+                    <p className="text-xs text-slate-400 mt-1">只有「總召」可以新增、編輯與刪除班表；其他成員只能查看，所有裝置即時同步。</p>
                   </div>
                   <button onClick={() => handleOpenScheduleModal()} className="bg-indigo-600 hover:bg-indigo-500 text-white text-xs px-4 py-2.5 rounded-xl font-bold shadow-lg">＋ 新增班表</button>
                 </div>
@@ -1388,7 +1492,7 @@
             <div className="modal-backdrop fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4">
               <div className="modal-card bg-slate-800 border border-slate-700 rounded-2xl w-full max-w-2xl p-4 sm:p-5 shadow-2xl space-y-4 max-h-[92vh] flex flex-col">
                 <div className="flex items-center justify-between border-b border-slate-700 pb-3 flex-shrink-0">
-                  <h3 className="font-bold text-white text-base">編輯工作人員排班 (分組/跨組調度)</h3>
+                  <h3 className="font-bold text-white text-base">班表管理・指派工作人員</h3>
                   <button onClick={() => setIsEditingSchedule(false)} className="text-slate-400 hover:text-white"><i data-lucide="x" className="w-5 h-5"></i></button>
                 </div>
                 <form onSubmit={handleSaveScheduleSubmit} className="space-y-4 text-xs overflow-y-auto pr-1 custom-scrollbar">
