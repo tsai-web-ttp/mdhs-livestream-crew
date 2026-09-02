@@ -13,6 +13,8 @@
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <!-- Babel for JSX -->
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <!-- EmailJS -->
+  <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 
   <!-- Firebase SDK Module Import -->
   <script type="module">
@@ -38,15 +40,15 @@
 
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap');
-    html { font-size: 17px; }
+    html { font-size: 18px; }
     body {
       font-family: 'Noto Sans TC', sans-serif;
       -webkit-tap-highlight-color: transparent;
       line-height: 1.55;
     }
-    .text-\[9px\] { font-size: 0.68rem !important; }
-    .text-\[10px\] { font-size: 0.74rem !important; }
-    .text-\[11px\] { font-size: 0.80rem !important; }
+    .text-\[9px\] { font-size: 0.76rem !important; }
+    .text-\[10px\] { font-size: 0.82rem !important; }
+    .text-\[11px\] { font-size: 0.88rem !important; }
     .custom-scrollbar::-webkit-scrollbar {
       width: 4px;
       height: 4px;
@@ -134,17 +136,33 @@
       firebaseConfig.projectId && !String(firebaseConfig.projectId).includes('請填入') &&
       firebaseConfig.appId && !String(firebaseConfig.appId).includes('請填入'));
 
+    // ===== EmailJS 設定 =====
+    // Public Key 不屬於密碼，可放在前端；請把你的 EmailJS Public Key 填入。
+    // Service / Template ID 依照目前既有 EmailJS 設定，不再拆成多個模板。
+    const EMAIL_CONFIG = {
+      publicKey: 'Uv3d-cQv48RI0xIvn',
+      serviceId: 'service_24zhez6',
+      scheduleTemplateId: 'template_gp2u9fd',
+      swapTemplateId: 'template_vkvjqo7'
+    };
+
+    if (window.emailjs && EMAIL_CONFIG.publicKey && !EMAIL_CONFIG.publicKey.includes('請填入')) {
+      try { window.emailjs.init({ publicKey: EMAIL_CONFIG.publicKey }); } catch (err) { console.error('EmailJS 初始化失敗:', err); }
+    }
+
+    const hasEmailConfig = !!(window.emailjs && EMAIL_CONFIG.publicKey && !EMAIL_CONFIG.publicKey.includes('請填入'));
+
     const INITIAL_MEMBERS = [
-      { id: 'm1', name: '蔡孜鵬', password: '31V714', role: 'admin', title: '總召', dept: 'admin', avatar: '' },
-      { id: 'm2', name: '洪睿頤', password: '31S441', role: 'leader', title: '導播組長', dept: 'director', avatar: '' },
-      { id: 'm3', name: '蕭宥華', password: '31S442', role: 'leader', title: 'CAM2 組長', dept: 'cam2', avatar: '' },
-      { id: 'm4', name: '陳盈融', password: '31S276', role: 'leader', title: '音控組長', dept: 'audio', avatar: '' },
-      { id: 'm10', name: '柯昱丞', password: '31S136', role: 'member', title: '導播組員', dept: 'director', avatar: '' },
-      { id: 'm5', name: '楊奕璿', password: '41S285', role: 'member', title: '導播組員', dept: 'director', avatar: '' },
-      { id: 'm6', name: '陳姿聿', password: '31V621', role: 'member', title: '音控組員', dept: 'audio', avatar: '' },
-      { id: 'm7', name: '胡永璋', password: '41S465', role: 'member', title: '音控組員', dept: 'audio', avatar: '' },
-      { id: 'm9', name: '黃芃瑀', password: '31V583', role: 'member', title: 'CAM1 攝影', dept: 'cam1', avatar: '' },
-      { id: 'm8', name: '戴士捷', password: '41V105', role: 'member', title: 'CAM2 攝影', dept: 'cam2', avatar: '' }
+      { id: 'm1', name: '蔡孜鵬', password: '31V714', role: 'admin', title: '總召', dept: 'admin', avatar: '', email: '' },
+      { id: 'm2', name: '洪睿頤', password: '31S441', role: 'leader', title: '導播組長', dept: 'director', avatar: '', email: '' },
+      { id: 'm3', name: '蕭宥華', password: '31S442', role: 'leader', title: 'CAM2 組長', dept: 'camera', avatar: '', email: '' },
+      { id: 'm4', name: '陳盈融', password: '31S276', role: 'leader', title: '音控組長', dept: 'audio', avatar: '', email: '' },
+      { id: 'm10', name: '柯昱丞', password: '31S136', role: 'member', title: '導播組員', dept: 'director', avatar: '', email: '' },
+      { id: 'm5', name: '楊奕璿', password: '41S285', role: 'member', title: '導播組員', dept: 'director', avatar: '', email: '' },
+      { id: 'm6', name: '陳姿聿', password: '31V621', role: 'member', title: '音控組員', dept: 'audio', avatar: '', email: '' },
+      { id: 'm7', name: '胡永璋', password: '41S465', role: 'member', title: '音控組員', dept: 'audio', avatar: '', email: '' },
+      { id: 'm9', name: '黃芃瑀', password: '31V583', role: 'member', title: 'CAM1 攝影', dept: 'camera', avatar: '', email: '' },
+      { id: 'm8', name: '戴士捷', password: '41V105', role: 'member', title: 'CAM2 攝影', dept: 'camera', avatar: '', email: '' }
     ];
 
     const DUTY_ROLES = [
@@ -158,6 +176,7 @@
 
     // 權限分級：老師 / 總召同為最高權限；組員 / 實習生同為一般權限，但身分獨立顯示。
     const isHighPrivilege = (role) => role === 'admin' || role === 'teacher';
+    const canManageSchedules = (role) => role === 'admin';
     const getRoleLabel = (role) => ({
       teacher: '老師',
       admin: '總召',
@@ -197,6 +216,7 @@
       const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
       const [isEditingSchedule, setIsEditingSchedule] = useState(false);
+      const [scheduleManagementView, setScheduleManagementView] = useState('current');
       const [editingScheduleData, setEditingScheduleData] = useState(null);
       const [crossSupportRole, setCrossSupportRole] = useState(null);
       const [crossSupportDept, setCrossSupportDept] = useState('audio');
@@ -208,6 +228,8 @@
       const [isMemberModalOpen, setIsMemberModalOpen] = useState(false);
       const [editingMemberData, setEditingMemberData] = useState(null);
       const [isPersonalSettings, setIsPersonalSettings] = useState(false);
+      const [memberFormRole, setMemberFormRole] = useState('member');
+      const [selectedSwapDate, setSelectedSwapDate] = useState('');
 
       const [avatarBase64, setAvatarBase64] = useState('');
 
@@ -303,7 +325,7 @@
 
         // 班表即時監聽（不強制寫入預設班表）
         unsubs.push(onSnapshot(schedulesRef, (snapshot) => {
-          const list = snapshot.docs.map(d => d.data());
+          const list = snapshot.docs.map(d => ({ ...d.data(), id: d.data().id || d.id }));
           list.sort((a, b) => {
             const aa = new Date(`${a.date || ''}T${(a.time || '00:00').split(' - ')[0] || '00:00'}`).getTime();
             const bb = new Date(`${b.date || ''}T${(b.time || '00:00').split(' - ')[0] || '00:00'}`).getTime();
@@ -432,6 +454,114 @@
           });
       };
 
+      const getDepartmentLabel = (memberOrDept) => {
+        const dept = typeof memberOrDept === 'string' ? memberOrDept : memberOrDept?.dept;
+        return ({
+          admin: '總召',
+          office: '處室',
+          director: '導播組',
+          audio: '音控組',
+          camera: '攝影組',
+          cam1: '攝影組',
+          cam2: '攝影組',
+          slides: '簡報/字卡組',
+          intern: '實習生'
+        }[dept] || dept || '');
+      };
+
+      const getScheduleEndDate = (schedule) => {
+        if (!schedule?.date) return null;
+        const rawTime = String(schedule.time || '').trim();
+        const parts = rawTime.split(/\s*-\s*/);
+        const endTime = (parts[1] || parts[0] || '23:59').trim();
+        const match = endTime.match(/(\d{1,2}):(\d{2})/);
+        if (!match) return null;
+        const hour = Number(match[1]);
+        const minute = Number(match[2]);
+        if (hour > 23 || minute > 59) return null;
+        const end = new Date(`${schedule.date}T${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:00`);
+        return Number.isNaN(end.getTime()) ? null : end;
+      };
+
+      const isScheduleEnded = (schedule) => {
+        const end = getScheduleEndDate(schedule);
+        return !!end && end.getTime() < Date.now();
+      };
+
+      // ===== EmailJS 通知 =====
+      const sendEmailSafely = async (templateId, templateParams) => {
+        if (!templateParams?.to_email) return { ok: false, skipped: true, skippedRecipient: true };
+        if (!hasEmailConfig) {
+          console.warn('EmailJS 尚未設定 Public Key，略過寄信。');
+          return { ok: false, skipped: true };
+        }
+        try {
+          await window.emailjs.send(EMAIL_CONFIG.serviceId, templateId, templateParams);
+          return { ok: true };
+        } catch (err) {
+          console.error('EmailJS 寄信失敗:', err);
+          return { ok: false, error: err };
+        }
+      };
+
+      const getMemberWorkRoles = (schedule, memberId) => DUTY_ROLES
+        .filter(role => Array.isArray(schedule?.assignments?.[role.key]) && schedule.assignments[role.key].includes(memberId))
+        .map(role => role.label);
+
+      const notifyScheduleMembers = async (schedule) => {
+        const grouped = new Map();
+        DUTY_ROLES.forEach(role => {
+          (Array.isArray(schedule?.assignments?.[role.key]) ? schedule.assignments[role.key] : []).forEach(memberId => {
+            const member = members.find(m => m.id === memberId);
+            if (!member?.email) return;
+            const existing = grouped.get(member.id) || { member, roles: [] };
+            if (!existing.roles.includes(role.label)) existing.roles.push(role.label);
+            grouped.set(member.id, existing);
+          });
+        });
+        let failed = 0;
+        for (const { member, roles } of grouped.values()) {
+          const result = await sendEmailSafely(EMAIL_CONFIG.scheduleTemplateId, {
+            to_email: member.email,
+            to_name: member.name,
+            // 完全對應 EmailJS「工作通知」模板第一張圖的變數。
+            mail_title: '工作通知',
+            name: member.name,
+            intro: `您已被安排以下直播工作：${roles.join('、')}\n\n活動：${schedule.title || '直播班表'}`,
+            date: schedule.date || '',
+            time: schedule.time || '',
+            position: roles.join('、'),
+            group: getDepartmentLabel(member),
+            message: `請準時到場，謝謝。\n\n如有任何問題，請登入明道中學直播團隊系統查看。`,
+            // 保留其他舊版欄位，避免既有模板或測試功能受影響。
+            to_name: member.name,
+            member_name: member.name,
+            schedule_title: schedule.title || '直播班表',
+            schedule_date: schedule.date || '',
+            schedule_time: schedule.time || '',
+            roles: roles.join('、'),
+            work_roles: roles.join('、'),
+            email: member.email,
+            title: schedule.title || '直播班表',
+            activity: schedule.title || '直播班表',
+            role: roles.join('、'),
+            work_role: roles.join('、'),
+            work_role_label: roles.join('、'),
+            department: getDepartmentLabel(member),
+            content: `活動：${schedule.title || '直播班表'}｜日期：${schedule.date || ''}｜時間：${schedule.time || ''}｜工作：${roles.join('、')}`
+          });
+          if (!result.ok && !result.skipped) failed++;
+        }
+        return { sent: grouped.size - failed, failed, skipped: !hasEmailConfig };
+      };
+
+      const getWorkRoleForDate = (date, memberId = currentUser?.id) => {
+        if (!date || !memberId) return '';
+        const schedule = schedules.find(s => s.date === date);
+        if (!schedule) return '';
+        return getMemberWorkRoles(schedule, memberId).join('、');
+      };
+
       // 需求 2：確保所有送出功能帶有容錯處理，保證必能寫入與送出
       const handlePostSuggestion = async (e) => {
         e.preventDefault();
@@ -447,9 +577,15 @@
 
         setIsSaving(true);
         setLeaderSuggestions(prev => [sugObj, ...prev]);
-        syncToCloud('suggestions', sugObj.id, sugObj, '公告同步失敗，請稍後重試').catch(() => {});
-        showToast('組長公告/建議已發布！');
-        setIsSuggestionModalOpen(false);
+        try {
+          await syncToCloud('suggestions', sugObj.id, sugObj, '公告同步失敗，請稍後重試');
+          showToast('組長公告/建議已發布！');
+          setIsSuggestionModalOpen(false);
+        } catch (err) {
+          // 保留視窗，讓使用者可以重試；避免按鈕永久卡在「發布中」。
+        } finally {
+          setIsSaving(false);
+        }
       };
 
       const handleDeleteSuggestion = async (sugId) => {
@@ -478,18 +614,32 @@
       };
 
       const handleOpenScheduleModal = (sch = null) => {
-        if (!isHighPrivilege(currentUser?.role)) {
-          showToast('只有老師 / 總召最高權限可以新增或編輯班表', 'error');
+        if (!canManageSchedules(currentUser?.role)) {
+          showToast('只有總召可以新增或編輯班表，老師不負責班表管理', 'error');
           return;
         }
-        if (sch) setEditingScheduleData(JSON.parse(JSON.stringify(sch)));
-        else {
+        if (sch) {
+          const cloned = JSON.parse(JSON.stringify(sch));
+          const assignments = cloned.assignments || {};
+          Object.keys(assignments).forEach(key => {
+            const ids = Array.isArray(assignments[key]) ? assignments[key] : [];
+            assignments[key] = [...new Set(ids)].filter(id => {
+              const member = members.find(m => m.id === id);
+              if (!member) return false;
+              if (member.role === 'teacher') return false;
+              if (member.role === 'intern') return key === 'intern';
+              return key !== 'intern';
+            });
+          });
+          cloned.assignments = assignments;
+          setEditingScheduleData(cloned);
+        } else {
           setEditingScheduleData({
             id: `sch-${Date.now()}`,
             date: new Date().toISOString().split('T')[0],
             title: '新朝會排班',
             time: '07:30 - 08:20',
-            assignments: { director: [], audio: [], cam1: [], cam2: [], slides: [] }
+            assignments: { director: [], audio: [], cam1: [], cam2: [], slides: [], intern: [] }
           });
         }
         setCrossSupportRole(null);
@@ -504,15 +654,29 @@
           const assignments = prev.assignments || {};
           const currentList = Array.isArray(assignments[roleKey]) ? assignments[roleKey] : [];
           const isAssigned = currentList.includes(memberId);
-          const newList = isAssigned ? currentList.filter(id => id !== memberId) : [...currentList, memberId];
-          return { ...prev, assignments: { ...assignments, [roleKey]: newList } };
+          let nextAssignments = { ...assignments };
+
+          if (isAssigned) {
+            nextAssignments[roleKey] = currentList.filter(id => id !== memberId);
+          } else {
+            // 同一位攝影組成員只能擔任 CAM1 或 CAM2 其中一個，不能同時出現。
+            if (roleKey === 'cam1' || roleKey === 'cam2') {
+              const otherCamera = roleKey === 'cam1' ? 'cam2' : 'cam1';
+              const otherList = Array.isArray(nextAssignments[otherCamera]) ? nextAssignments[otherCamera] : [];
+              if (otherList.includes(memberId)) {
+                nextAssignments[otherCamera] = otherList.filter(id => id !== memberId);
+              }
+            }
+            nextAssignments[roleKey] = [...currentList, memberId];
+          }
+          return { ...prev, assignments: nextAssignments };
         });
       };
 
       const handleSaveScheduleSubmit = async (e) => {
         e.preventDefault();
-        if (!editingScheduleData || !isHighPrivilege(currentUser?.role)) {
-          showToast('只有老師 / 總召最高權限可以修改班表', 'error');
+        if (!editingScheduleData || !canManageSchedules(currentUser?.role)) {
+          showToast('只有總召可以修改班表，老師不負責班表管理', 'error');
           return;
         }
         if (!db || !authUser) {
@@ -522,7 +686,22 @@
         }
         setIsSaving(true);
         try {
-          const scheduleToSave = { ...editingScheduleData, updatedAt: Date.now(), updatedBy: currentUser.id, updatedByName: currentUser.name };
+          const cleanedAssignments = {};
+          DUTY_ROLES.forEach(role => {
+            const ids = Array.isArray(editingScheduleData.assignments?.[role.key]) ? editingScheduleData.assignments[role.key] : [];
+            cleanedAssignments[role.key] = [...new Set(ids)].filter(id => {
+              const member = members.find(m => m.id === id);
+              if (!member || member.role === 'teacher') return false;
+              if (member.role === 'intern') return role.key === 'intern';
+              if (role.key === 'cam1' || role.key === 'cam2') return member.dept === 'camera' || member.dept === 'cam1' || member.dept === 'cam2';
+              return role.key !== 'intern';
+            });
+          });
+          // 最後一道互斥檢查：同一天 CAM1 / CAM2 不允許同一人。
+          const cam1Set = new Set(cleanedAssignments.cam1);
+          cleanedAssignments.cam2 = cleanedAssignments.cam2.filter(id => !cam1Set.has(id));
+          const scheduleToSave = { ...editingScheduleData, assignments: cleanedAssignments, updatedAt: Date.now(), updatedBy: currentUser.id, updatedByName: currentUser.name };
+          const isNewSchedule = !schedules.some(s => s.id === scheduleToSave.id);
           await syncToCloud('schedules', scheduleToSave.id, scheduleToSave, '班表同步失敗，資料尚未儲存');
           setSchedules(prev => {
             const exists = prev.some(s => s.id === scheduleToSave.id);
@@ -533,7 +712,15 @@
               return aa - bb;
             });
           });
-          showToast('班表已儲存到 Firebase，其他裝置會即時更新。');
+          if (isNewSchedule) {
+            const emailResult = await notifyScheduleMembers(scheduleToSave);
+            if (emailResult.skipped) showToast('班表已儲存；EmailJS Public Key 尚未設定，因此未寄出通知。', 'error');
+            else if (emailResult.failed > 0) showToast(`班表已儲存；有 ${emailResult.failed} 位成員通知寄送失敗。`, 'error');
+            else if (emailResult.sent > 0) showToast(`班表已儲存，已寄送 ${emailResult.sent} 位成員的工作通知。`);
+            else showToast('班表已儲存，但目前沒有可寄送 Email 的成員。');
+          } else {
+            showToast('班表已儲存到 Firebase，其他裝置會即時更新。');
+          }
           setIsEditingSchedule(false);
           setEditingScheduleData(null);
         } catch (err) {
@@ -544,8 +731,8 @@
       };
 
       const handleDeleteSchedule = async (scheduleId, title) => {
-        if (!isHighPrivilege(currentUser?.role)) {
-          showToast('只有老師 / 總召最高權限可以刪除班表', 'error');
+        if (!canManageSchedules(currentUser?.role)) {
+          showToast('只有總召可以刪除班表，老師不負責班表管理', 'error');
           return;
         }
         if (!confirm(`確定要刪除「${title || '這筆班表'}」嗎？`)) return;
@@ -559,7 +746,35 @@
           setSchedules(prev => prev.filter(s => s.id !== scheduleId));
           showToast('班表已從 Firebase 刪除，其他裝置會同步移除。');
         } catch (err) {
-          // 保留原資料
+          console.error('刪除班表失敗:', err);
+          const message = err?.code === 'permission-denied' ? 'Firebase 權限拒絕刪除：請在 Firestore Rules 允許 schedules 的 delete。' : `班表刪除失敗：${err?.message || '未知錯誤'}`;
+          showToast(message, 'error');
+        } finally {
+          setIsSaving(false);
+        }
+      };
+
+      const handleResendScheduleNotification = async (schedule) => {
+        if (!canManageSchedules(currentUser?.role)) {
+          showToast('只有總召可以再次通知班表，老師不負責班表管理', 'error');
+          return;
+        }
+        const assignedCount = DUTY_ROLES.reduce((count, role) => {
+          const ids = Array.isArray(schedule?.assignments?.[role.key]) ? schedule.assignments[role.key] : [];
+          return count + ids.filter(id => members.some(m => m.id === id && m.email)).length;
+        }, 0);
+        if (!assignedCount) {
+          showToast('這個活動目前沒有填寫 Email 的已指派成員。', 'error');
+          return;
+        }
+        if (!confirm(`確定要再次通知「${schedule.title || '這個活動'}」的所有已指派成員嗎？`)) return;
+        setIsSaving(true);
+        try {
+          const emailResult = await notifyScheduleMembers(schedule);
+          if (emailResult.skipped) showToast('目前未設定 EmailJS Public Key，沒有寄出通知。', 'error');
+          else if (emailResult.failed > 0) showToast(`再次通知完成，但有 ${emailResult.failed} 位成員寄送失敗。`, 'error');
+          else if (emailResult.sent > 0) showToast(`已再次通知 ${emailResult.sent} 位成員。`);
+          else showToast('沒有成功寄出的通知。', 'error');
         } finally {
           setIsSaving(false);
         }
@@ -577,28 +792,99 @@
       const handleRequestSwap = async (e) => {
         e.preventDefault();
         const formData = new FormData(e.target);
+        const targetDate = formData.get('targetDate');
+        const workRole = getWorkRoleForDate(targetDate);
+        if (!workRole) {
+          showToast('這個日期找不到你的班表崗位，請重新選擇日期。', 'error');
+          return;
+        }
         const newSwap = {
           id: `sw-${Date.now()}`,
           requester: currentUser.name,
           requesterId: currentUser.id,
-          targetDate: formData.get('targetDate'),
-          roleLabel: formData.get('roleLabel'),
+          requesterEmail: currentUser.email || '',
+          targetDate,
+          roleLabel: workRole,
           reason: formData.get('reason'),
-          status: 'pending'
+          status: 'pending',
+          reviewerNote: '',
+          createdAt: Date.now()
         };
-        syncToCloud('swaps', newSwap.id, newSwap, '申請同步失敗，請稍後重試');
-        setSwaps(prev => [newSwap, ...prev]);
-        showToast('請假/換班申請已送出！');
-        setIsSwapModalOpen(false);
+        try {
+          await syncToCloud('swaps', newSwap.id, newSwap, '申請同步失敗，請稍後重試');
+          setSwaps(prev => [newSwap, ...prev]);
+          const emailResult = await sendEmailSafely(EMAIL_CONFIG.swapTemplateId, {
+            to_email: currentUser.email || '',
+            to_name: currentUser.name,
+            // 完全對應 EmailJS「請假／換班通知」模板第二張圖的變數。
+            mail_title: '請假／換班申請',
+            name: currentUser.name,
+            intro: '您提交的請假／換班申請如下：',
+            date: targetDate || '',
+            position: workRole || '',
+            group: getDepartmentLabel(currentUser),
+            reason: newSwap.reason || '',
+            status: '審核中',
+            review_note: '',
+            message: '申請已送出，請等待管理人員審核。',
+            // 保留程式既有欄位。
+            member_name: currentUser.name,
+            action: '請假／換班申請已送出',
+            target_date: targetDate,
+            work_role: workRole,
+            reviewer_note: '',
+            content: `日期：${targetDate}｜工作：${workRole}｜狀態：審核中｜原因：${newSwap.reason || ''}`
+          });
+          if (emailResult.ok) showToast('請假/換班申請已送出，確認信已寄出！');
+          else if (emailResult.skipped) showToast('申請已送出；EmailJS Public Key 尚未設定，因此未寄出確認信。', 'error');
+          else showToast('申請已送出，但確認信寄送失敗。', 'error');
+          setIsSwapModalOpen(false);
+        } catch (err) {}
       };
 
       const handleUpdateSwapStatus = async (swapId, newStatus) => {
         const targetSwap = swaps.find(s => s.id === swapId);
-        if (!targetSwap) return;
-        const updated = { ...targetSwap, status: newStatus };
-        syncToCloud('swaps', swapId, updated, '審核結果同步失敗');
-        setSwaps(prev => prev.map(s => s.id === swapId ? updated : s));
-        showToast(`已${newStatus === 'approved' ? '核准' : '駁回'}該請假申請！`);
+        if (!targetSwap || !isHighPrivilege(currentUser?.role)) return;
+        const note = prompt('請填寫這筆請假／換班申請的審核備注（可留空）：', targetSwap.reviewerNote || '');
+        if (note === null) return;
+        const updated = {
+          ...targetSwap,
+          status: newStatus,
+          reviewerNote: note,
+          reviewedAt: Date.now(),
+          reviewerId: currentUser.id,
+          reviewerName: currentUser.name
+        };
+        try {
+          await syncToCloud('swaps', swapId, updated, '審核結果同步失敗');
+          setSwaps(prev => prev.map(s => s.id === swapId ? updated : s));
+          const statusText = newStatus === 'approved' ? '已核准' : '已駁回';
+          const emailResult = await sendEmailSafely(EMAIL_CONFIG.swapTemplateId, {
+            to_email: targetSwap.requesterEmail || (members.find(m => m.id === targetSwap.requesterId)?.email || ''),
+            to_name: targetSwap.requester,
+            // 完全對應 EmailJS「請假／換班通知」模板第二張圖的變數。
+            mail_title: `請假／換班申請${statusText}`,
+            name: targetSwap.requester,
+            intro: `您的請假／換班申請${statusText}：`,
+            date: targetSwap.targetDate || '',
+            position: targetSwap.roleLabel || '',
+            group: getDepartmentLabel(members.find(x => x.id === targetSwap.requesterId)),
+            reason: targetSwap.reason || '',
+            status: statusText,
+            review_note: note || '',
+            message: `申請${statusText}。${note ? `審核備注：${note}` : ''}`,
+            // 保留程式既有欄位。
+            member_name: targetSwap.requester,
+            action: `請假／換班申請${statusText}`,
+            target_date: targetSwap.targetDate,
+            work_role: targetSwap.roleLabel,
+            reviewer_note: note || '',
+            content: `日期：${targetSwap.targetDate || ''}｜工作：${targetSwap.roleLabel || ''}｜狀態：${statusText}｜審核備注：${note || '無'}`
+          });
+          if (emailResult.ok) showToast(`已${newStatus === 'approved' ? '核准' : '駁回'}該請假申請，結果通知已寄出！`);
+          else if (emailResult.skipped) showToast(`已${newStatus === 'approved' ? '核准' : '駁回'}；EmailJS Public Key 尚未設定，因此未寄出結果通知。`, 'error');
+          else showToast(`已${newStatus === 'approved' ? '核准' : '駁回'}，但結果通知寄送失敗。`, 'error');
+        } catch (err) {}
       };
 
       const handleDeleteSwapHistory = async (swapId) => {
@@ -665,7 +951,7 @@
             password: formData.get('password'),
             role: formData.get('role'),
             title: formData.get('title'),
-            dept: formData.get('dept'),
+            dept: formData.get('role') === 'teacher' ? (formData.get('dept') || 'office') : (formData.get('dept') === 'camera' ? 'camera' : formData.get('dept')),
             className: formData.get('className') || (editingMemberData ? editingMemberData.className || '' : ''),
             email: formData.get('email') || (editingMemberData ? editingMemberData.email || '' : ''),
             avatar: finalAvatar
@@ -710,6 +996,8 @@
       }, [sortedSchedules]);
       const latestSchedule = useMemo(() => nextScheduleIndex >= 0 ? sortedSchedules[nextScheduleIndex] : null, [sortedSchedules, nextScheduleIndex]);
       const upcomingSchedules = useMemo(() => nextScheduleIndex >= 0 ? sortedSchedules.slice(nextScheduleIndex + 1) : [], [sortedSchedules, nextScheduleIndex]);
+      const currentSchedules = useMemo(() => sortedSchedules.filter(s => !isScheduleEnded(s)), [sortedSchedules]);
+      const historicalSchedules = useMemo(() => sortedSchedules.filter(s => isScheduleEnded(s)), [sortedSchedules]);
 
       const isUserInSchedule = (sch, userId) => {
         if (!sch || !sch.assignments) return false;
@@ -825,7 +1113,7 @@
               <nav className="space-y-1.5">
                 {[
                   { id: 'dashboard', label: '總覽', icon: 'layout-dashboard' },
-                  ...(isHighPrivilege(currentUser.role) ? [{ id: 'schedules', label: '班表管理', icon: 'calendar-days' }] : []),
+                  ...(canManageSchedules(currentUser.role) ? [{ id: 'schedules', label: '班表管理', icon: 'calendar-days' }] : []),
                   { id: 'sop', label: '崗位操作說明與注意事項', icon: 'clipboard-list' },
                   { id: 'repairs', label: '設備報修系統', icon: 'wrench', badge: repairs.filter(r => r.status === 'pending').length },
                   { id: 'swaps', label: '請假與換班審核', icon: 'arrow-left-right', badge: isHighPrivilege(currentUser.role) ? swaps.filter(s => s.status === 'pending').length : 0 },
@@ -835,11 +1123,11 @@
                   <button
                     key={item.id}
                     onClick={() => { setActiveTab(item.id); setIsMobileMenuOpen(false); }}
-                    className={`w-full flex items-center justify-between px-3.5 py-3 md:py-2.5 rounded-xl text-xs md:text-sm font-medium transition ${activeTab === item.id ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-300 hover:bg-slate-700/50'}`}
+                    className={`w-full flex items-center justify-between whitespace-nowrap px-3.5 py-3 md:py-2.5 rounded-xl text-xs md:text-sm font-medium transition ${activeTab === item.id ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-300 hover:bg-slate-700/50'}`}
                   >
                     <div className="flex items-center space-x-3">
                       <i data-lucide={item.icon} className="w-4 h-4 flex-shrink-0"></i>
-                      <span>{item.label}</span>
+                      <span className="whitespace-nowrap flex-shrink-0">{item.label}</span>
                     </div>
                     {item.badge > 0 && (
                       <span className="bg-rose-500 text-white text-[10px] px-2 py-0.5 rounded-full font-bold">
@@ -866,7 +1154,7 @@
             </div>
 
             <div className="mt-6 pt-4 border-t border-slate-700 flex items-center justify-between">
-              <button onClick={() => { setEditingMemberData(currentUser); setIsPersonalSettings(true); setAvatarBase64(''); setIsMemberModalOpen(true); }} className="text-xs text-indigo-400 hover:underline">
+              <button onClick={() => { setEditingMemberData(currentUser); setIsPersonalSettings(true); setMemberFormRole(currentUser.role); setAvatarBase64(''); setIsMemberModalOpen(true); }} className="text-xs text-indigo-400 hover:underline">
                 ⚙️ 個人設定
               </button>
               <button onClick={handleLogout} className="flex items-center space-x-1 bg-slate-900 hover:bg-rose-900/40 text-slate-300 hover:text-rose-300 border border-slate-700 px-3 py-1.5 rounded-xl text-xs font-medium transition">
@@ -1040,7 +1328,7 @@
                       <i data-lucide="user-check" className="w-4 h-4 mr-1.5 text-indigo-400"></i>
                       【{currentUser.name}】個人近期負責工作
                     </h3>
-                    <button onClick={() => setIsSwapModalOpen(true)} className="bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs px-3 py-1.5 rounded-xl transition flex items-center space-x-1">
+                    <button onClick={() => { setSelectedSwapDate(userScheduledDates[0]?.date || ''); setIsSwapModalOpen(true); }} className="bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs px-3 py-1.5 rounded-xl transition flex items-center space-x-1">
                       <i data-lucide="arrow-left-right" className="w-3.5 h-3.5"></i>
                       <span>申請請假 / 換班</span>
                     </button>
@@ -1059,9 +1347,9 @@
                             <div className="text-xs font-bold text-white">{sch.title}</div>
                           </div>
                           <div className="flex flex-wrap gap-1 justify-end">
-                            {myAssignedRoles.map(r => (
+                            {myAssignedRoles.filter(r => r.key !== 'cam2').map(r => (
                               <span key={r.key} className="bg-indigo-600/30 text-indigo-300 border border-indigo-500/40 text-[11px] font-bold px-2 py-0.5 rounded-lg">
-                                {r.label}
+                                {r.key === 'cam1' ? '攝影組' : r.label}
                               </span>
                             ))}
                           </div>
@@ -1075,21 +1363,6 @@
                 </div>
 
                 <div className="glass-panel rounded-2xl p-4 md:p-6 shadow-md space-y-6">
-                  <div className="flex items-center justify-between pb-3 border-b border-slate-700">
-                    <div>
-                      <h3 className="text-base font-bold text-white flex items-center">
-                        <i data-lucide="calendar" className="w-5 h-5 mr-2 text-indigo-400"></i>
-                        全體月班表
-                      </h3>
-                    </div>
-                    {isHighPrivilege(currentUser.role) && (
-                      <button onClick={() => handleOpenScheduleModal(null)} className="bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-xs px-3 py-2 rounded-xl transition flex items-center space-x-1">
-                        <i data-lucide="plus-circle" className="w-4 h-4"></i>
-                        <span>新增班表</span>
-                      </button>
-                    )}
-                  </div>
-
                   {latestSchedule ? (
                     <div>
                       <div className="flex items-center justify-between mb-2">
@@ -1108,18 +1381,19 @@
                             </div>
                             <h4 className="font-bold text-white text-base">{latestSchedule.title}</h4>
                           </div>
-                          {isHighPrivilege(currentUser.role) && (
+                          {canManageSchedules(currentUser.role) && (
                             <button onClick={() => handleOpenScheduleModal(latestSchedule)} className="self-end sm:self-auto text-xs bg-slate-800 hover:bg-slate-700 text-indigo-300 border border-slate-700 px-3 py-1.5 rounded-xl font-medium">
                               編輯工作人員
                             </button>
                           )}
                         </div>
 
-                        <div className="grid grid-cols-1 sm:grid-cols-5 gap-2.5">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-2.5">
                           {DUTY_ROLES.map(role => {
                             const assignedIds = (latestSchedule.assignments && latestSchedule.assignments[role.key]) || [];
-                            const assignedMembers = members.filter(m => assignedIds.includes(m.id));
-                            const isMeInRole = assignedIds.includes(currentUser.id);
+                            const uniqueIds = [...new Set(assignedIds)];
+                            const assignedMembers = members.filter(m => uniqueIds.includes(m.id));
+                            const isMeInRole = uniqueIds.includes(currentUser.id);
 
                             return (
                               <div key={role.key} className={`p-2.5 rounded-xl border ${isMeInRole ? 'bg-indigo-950/80 border-indigo-500 shadow-md' : 'bg-slate-800/80 border-slate-700/80'}`}>
@@ -1147,6 +1421,51 @@
                     </div>
                   )}
 
+
+                  <div className="flex items-center justify-between pb-3 border-b border-slate-700">
+                    <div>
+                      <h3 className="text-base font-bold text-white flex items-center">
+                        <i data-lucide="calendar" className="w-5 h-5 mr-2 text-indigo-400"></i>
+                        全體月班表
+                      </h3>
+                    </div>
+                    {canManageSchedules(currentUser.role) && (
+                      <button onClick={() => handleOpenScheduleModal(null)} className="bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-xs px-3 py-2 rounded-xl transition flex items-center space-x-1">
+                        <i data-lucide="plus-circle" className="w-4 h-4"></i>
+                        <span>新增班表</span>
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="rounded-2xl border border-slate-700/80 bg-slate-900/50 overflow-hidden">
+                    <div className="px-4 py-3 border-b border-slate-700/80">
+                      <div className="text-sm font-bold text-white">月班表</div>
+                      <div className="text-xs text-slate-500 mt-0.5">CAM1、CAM2 保持獨立欄位顯示；攝影組成員來源共用。</div>
+                    </div>
+                    <div className="overflow-x-auto custom-scrollbar">
+                      <table className="w-full min-w-[900px] text-left">
+                        <thead className="bg-slate-800/80">
+                          <tr>
+                            {['日期','活動','導播','音控','CAM1','CAM2','簡報/字卡','實習生'].map(h => <th key={h} className="px-3 py-2.5 text-xs font-bold text-slate-300 whitespace-nowrap">{h}</th>)}
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-800">
+                          {sortedSchedules.map(sch => (
+                            <tr key={`month-${sch.id}`} className="hover:bg-slate-800/40">
+                              <td className="px-3 py-2.5 text-xs font-mono text-indigo-300 whitespace-nowrap">{sch.date}</td>
+                              <td className="px-3 py-2.5 text-xs font-semibold text-white min-w-[150px]">{sch.title || '未命名班表'}<div className="text-[10px] text-slate-500 mt-0.5">{sch.time || ''}</div></td>
+                              {['director','audio','cam1','cam2','slides','intern'].map(key => {
+                                const ids = [...new Set((sch.assignments && sch.assignments[key]) || [])];
+                                return <td key={key} className="px-3 py-2.5 align-top"><div className="flex flex-wrap gap-1 min-w-[90px]">{ids.map(id => { const m = members.find(x => x.id === id); return m ? <span key={id} className="text-xs bg-slate-700/80 text-slate-200 px-2 py-1 rounded-md whitespace-nowrap">{m.name}</span> : null; })}{ids.length === 0 && <span className="text-xs text-slate-600">—</span>}</div></td>;
+                              })}
+                            </tr>
+                          ))}
+                          {sortedSchedules.length === 0 && <tr><td colSpan="8" className="px-4 py-8 text-center text-xs text-slate-500">目前尚無班表</td></tr>}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
                   {upcomingSchedules.length > 0 && (
                     <div className="pt-2">
                       <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">即將到來的直播 ({upcomingSchedules.length})</div>
@@ -1159,14 +1478,15 @@
                                 <span className="text-xs text-slate-400">{sch.time}</span>
                                 <h4 className="font-bold text-white text-xs md:text-sm">{sch.title}</h4>
                               </div>
-                              {isHighPrivilege(currentUser.role) && (
+                              {canManageSchedules(currentUser.role) && (
                                 <button onClick={() => handleOpenScheduleModal(sch)} className="self-end sm:self-auto text-[11px] text-indigo-400 hover:underline">編輯人員</button>
                               )}
                             </div>
-                            <div className="grid grid-cols-1 sm:grid-cols-5 gap-2">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-2">
                               {DUTY_ROLES.map(role => {
                                 const assignedIds = (sch.assignments && sch.assignments[role.key]) || [];
-                                const assignedMembers = members.filter(m => assignedIds.includes(m.id));
+                                const uniqueIds = [...new Set(assignedIds)];
+                                const assignedMembers = members.filter(m => uniqueIds.includes(m.id));
                                 return (
                                   <div key={role.key} className="p-2 rounded-lg bg-slate-800/50 border border-slate-700/50">
                                     <div className="text-[10px] text-slate-400 mb-1">{role.label}</div>
@@ -1189,37 +1509,45 @@
               </div>
             )}
 
-            {activeTab === 'schedules' && isHighPrivilege(currentUser.role) && (
+            {activeTab === 'schedules' && canManageSchedules(currentUser.role) && (
               <div className="space-y-4">
-                <div className="glass-panel rounded-2xl p-4 md:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <i data-lucide="calendar-days" className="w-5 h-5 text-indigo-400"></i>
-                      <h2 className="text-lg font-bold text-white">班表管理</h2>
+                <div className="glass-panel rounded-2xl p-4 md:p-5 flex flex-col gap-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <i data-lucide="calendar-days" className="w-5 h-5 text-indigo-400"></i>
+                        <h2 className="text-lg font-bold text-white">班表管理</h2>
+                      </div>
+                      <p className="text-xs text-slate-400 mt-1">只有「總召」可以新增、編輯與刪除班表；系統會依活動日期與結束時間自動判斷是否進入歷史班表。</p>
                     </div>
-                    <p className="text-xs text-slate-400 mt-1">只有「老師」或「總召」最高權限可以新增、編輯與刪除班表；其他成員只能查看，所有裝置即時同步。</p>
+                    <button onClick={() => handleOpenScheduleModal()} className="bg-indigo-600 hover:bg-indigo-500 text-white text-xs px-4 py-2.5 rounded-xl font-bold shadow-lg">＋ 新增班表</button>
                   </div>
-                  <button onClick={() => handleOpenScheduleModal()} className="bg-indigo-600 hover:bg-indigo-500 text-white text-xs px-4 py-2.5 rounded-xl font-bold shadow-lg">＋ 新增班表</button>
+                  <div className="flex gap-2 border-t border-slate-700/70 pt-3">
+                    <button onClick={() => setScheduleManagementView('current')} className={`px-4 py-2 rounded-xl text-xs font-bold transition ${scheduleManagementView === 'current' ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'}`}>目前班表（{currentSchedules.length}）</button>
+                    <button onClick={() => setScheduleManagementView('history')} className={`px-4 py-2 rounded-xl text-xs font-bold transition ${scheduleManagementView === 'history' ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'}`}>歷史班表（{historicalSchedules.length}）</button>
+                  </div>
                 </div>
 
                 <div className="space-y-3">
-                  {sortedSchedules.length === 0 ? (
+                  {(scheduleManagementView === 'current' ? currentSchedules : historicalSchedules).length === 0 ? (
                     <div className="glass-panel rounded-2xl p-10 text-center">
-                      <i data-lucide="calendar-plus" className="w-10 h-10 mx-auto text-slate-600 mb-3"></i>
-                      <p className="text-sm font-bold text-slate-300">目前沒有班表</p>
-                      <p className="text-xs text-slate-500 mt-1">建立第一筆班表後，其他裝置會即時看到。</p>
+                      <i data-lucide={scheduleManagementView === 'current' ? 'calendar-plus' : 'archive'} className="w-10 h-10 mx-auto text-slate-600 mb-3"></i>
+                      <p className="text-sm font-bold text-slate-300">{scheduleManagementView === 'current' ? '目前沒有未結束的班表' : '目前沒有歷史班表'}</p>
+                      <p className="text-xs text-slate-500 mt-1">{scheduleManagementView === 'current' ? '建立第一筆班表後，其他裝置會即時看到。' : '活動結束後會自動歸入這裡。'}</p>
                     </div>
-                  ) : sortedSchedules.map(sch => (
+                  ) : (scheduleManagementView === 'current' ? currentSchedules : historicalSchedules).map(sch => (
                     <div key={sch.id} className="glass-panel rounded-2xl p-4">
                       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-3">
                         <div>
                           <div className="flex flex-wrap items-center gap-2">
                             <span className="text-xs font-mono font-bold text-indigo-300 bg-indigo-500/10 border border-indigo-500/20 px-2 py-1 rounded-lg">{sch.date}</span>
                             <span className="text-xs text-slate-400">{sch.time}</span>
+                            {scheduleManagementView === 'history' && <span className="text-[10px] font-bold text-slate-400 bg-slate-700/70 px-2 py-1 rounded-lg">已結束</span>}
                           </div>
                           <h3 className="text-sm md:text-base font-bold text-white mt-1">{sch.title}</h3>
                         </div>
-                        <div className="flex gap-2">
+                        <div className="flex flex-wrap gap-2">
+                          <button onClick={() => handleResendScheduleNotification(sch)} className="px-3 py-2 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 text-xs text-emerald-300">再次通知</button>
                           <button onClick={() => handleOpenScheduleModal(sch)} className="px-3 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-xs text-white">編輯</button>
                           <button onClick={() => handleDeleteSchedule(sch.id, sch.title)} className="px-3 py-2 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 text-xs text-rose-300">刪除</button>
                         </div>
@@ -1350,7 +1678,7 @@
                     <h2 className="text-lg font-bold text-white">請假與換班審核中心</h2>
                     <p className="text-xs text-slate-400">審核並查看歷史紀錄</p>
                   </div>
-                  <button onClick={() => setIsSwapModalOpen(true)} className="bg-indigo-600 text-white text-xs px-3 py-2 rounded-xl font-medium">+ 提出申請</button>
+                  <button onClick={() => { setSelectedSwapDate(userScheduledDates[0]?.date || ''); setIsSwapModalOpen(true); }} className="bg-indigo-600 text-white text-xs px-3 py-2 rounded-xl font-medium">+ 提出申請</button>
                 </div>
 
                 <div className="space-y-3">
@@ -1392,7 +1720,7 @@
                   if (!canViewHistory && myHistory.length === 0) return null;
                   return <div className="space-y-3 pt-4 border-t border-slate-700">
                     <div className="flex items-center justify-between"><div><h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">📋 歷史審核紀錄</h3><p className="text-[10px] text-slate-500 mt-1">{canViewHistory ? '老師 / 總召可查看全部請假/換班歷史' : '僅顯示你本人提出的歷史申請'}</p></div><span className="text-[10px] text-slate-500">{history.length} 筆</span></div>
-                    <div className="space-y-2">{history.map(sw => <div key={sw.id} className="bg-slate-900/60 border border-slate-700/70 rounded-xl p-3.5 flex items-center justify-between gap-3"><div className="min-w-0"><div className="flex items-center space-x-2 mb-1"><span className="font-bold text-white text-xs">{sw.requester}</span><span className="text-[10px] text-slate-400">({sw.targetDate} - {sw.roleLabel})</span></div><div className="text-[11px] text-slate-300">事由：{sw.reason}</div></div><div className="flex items-center gap-2 flex-shrink-0"><span className={`text-[10px] px-2.5 py-1 rounded-full font-bold ${sw.status === 'approved' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-rose-500/20 text-rose-400 border border-rose-500/30'}`}>{sw.status === 'approved' ? '✓ 已核准' : '✕ 已駁回'}</span>{isHighPrivilege(currentUser.role) && <button type="button" onClick={() => handleDeleteSwapHistory(sw.id)} className="text-[10px] text-rose-300 bg-rose-500/10 border border-rose-500/30 px-2 py-1 rounded-lg hover:bg-rose-500/20">刪除</button>}</div></div>)}{history.length === 0 && <div className="text-xs text-slate-500 text-center py-4 bg-slate-800/40 rounded-xl border border-slate-700/60">尚無可查看的歷史紀錄</div>}</div>
+                    <div className="space-y-2">{history.map(sw => <div key={sw.id} className="bg-slate-900/60 border border-slate-700/70 rounded-xl p-3.5 flex items-center justify-between gap-3"><div className="min-w-0"><div className="flex items-center space-x-2 mb-1"><span className="font-bold text-white text-xs">{sw.requester}</span><span className="text-[10px] text-slate-400">({sw.targetDate} - {sw.roleLabel})</span></div><div className="text-[11px] text-slate-300">事由：{sw.reason}</div>{sw.reviewerNote && <div className="text-[11px] text-amber-300 mt-1">審核備注：{sw.reviewerNote}</div>}</div><div className="flex items-center gap-2 flex-shrink-0"><span className={`text-[10px] px-2.5 py-1 rounded-full font-bold ${sw.status === 'approved' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-rose-500/20 text-rose-400 border border-rose-500/30'}`}>{sw.status === 'approved' ? '✓ 已核准' : '✕ 已駁回'}</span>{isHighPrivilege(currentUser.role) && <button type="button" onClick={() => handleDeleteSwapHistory(sw.id)} className="text-[10px] text-rose-300 bg-rose-500/10 border border-rose-500/30 px-2 py-1 rounded-lg hover:bg-rose-500/20">刪除</button>}</div></div>)}{history.length === 0 && <div className="text-xs text-slate-500 text-center py-4 bg-slate-800/40 rounded-xl border border-slate-700/60">尚無可查看的歷史紀錄</div>}</div>
                   </div>;
                 })()}
 
@@ -1412,7 +1740,7 @@
                     </div>
                   </div>
                   {isHighPrivilege(currentUser.role) && (
-                    <button onClick={() => { setEditingMemberData(null); setAvatarBase64(''); setIsPersonalSettings(false); setIsMemberModalOpen(true); }} className="bg-indigo-600 hover:bg-indigo-500 text-white text-xs px-3.5 py-2 rounded-xl font-bold flex items-center justify-center gap-1.5 transition">
+                    <button onClick={() => { setEditingMemberData(null); setMemberFormRole('member'); setAvatarBase64(''); setIsPersonalSettings(false); setIsMemberModalOpen(true); }} className="bg-indigo-600 hover:bg-indigo-500 text-white text-xs px-3.5 py-2 rounded-xl font-bold flex items-center justify-center gap-1.5 transition">
                       <i data-lucide="user-plus" className="w-4 h-4"></i><span>加入成員</span>
                     </button>
                   )}
@@ -1442,7 +1770,7 @@
                       </div>
                       {isHighPrivilege(currentUser.role) && (
                         <div className="flex gap-2 pt-1">
-                          <button onClick={() => { setEditingMemberData(m); setIsPersonalSettings(false); setAvatarBase64(''); setIsMemberModalOpen(true); }} className="flex-1 bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs py-2 rounded-xl">編輯</button>
+                          <button onClick={() => { setEditingMemberData(m); setIsPersonalSettings(false); setMemberFormRole(m.role); setAvatarBase64(''); setIsMemberModalOpen(true); }} className="flex-1 bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs py-2 rounded-xl">編輯</button>
                           {m.id !== currentUser.id && <button onClick={() => handleDeleteMember(m.id, m.name)} className="bg-rose-900/40 hover:bg-rose-900 text-rose-300 text-xs px-3 py-2 rounded-xl border border-rose-500/30">刪除</button>}
                         </div>
                       )}
@@ -1460,7 +1788,7 @@
                   <div>
                     <h2 className="text-lg font-bold text-white">成員與權限管理（最高權限專區）</h2>
                   </div>
-                  <button onClick={() => { setEditingMemberData(null); setAvatarBase64(''); setIsPersonalSettings(false); setIsMemberModalOpen(true); }} className="bg-indigo-600 text-white text-xs px-3 py-2 rounded-xl font-medium flex items-center justify-center space-x-1">
+                  <button onClick={() => { setEditingMemberData(null); setMemberFormRole('member'); setAvatarBase64(''); setIsPersonalSettings(false); setIsMemberModalOpen(true); }} className="bg-indigo-600 text-white text-xs px-3 py-2 rounded-xl font-medium flex items-center justify-center space-x-1">
                     <i data-lucide="user-plus" className="w-4 h-4"></i>
                     <span>+ 新增成員</span>
                   </button>
@@ -1526,7 +1854,7 @@
                           <option value="admin">總召</option>
                         </select>
 
-                        <button onClick={() => { setEditingMemberData(m); setIsPersonalSettings(false); setAvatarBase64(''); setIsMemberModalOpen(true); }} className="bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs px-2.5 py-1.5 rounded-lg">編輯</button>
+                        <button onClick={() => { setEditingMemberData(m); setIsPersonalSettings(false); setMemberFormRole(m.role); setAvatarBase64(''); setIsMemberModalOpen(true); }} className="bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs px-2.5 py-1.5 rounded-lg">編輯</button>
                         {m.id !== currentUser.id && (
                           <button onClick={() => handleDeleteMember(m.id, m.name)} className="bg-rose-900/40 hover:bg-rose-900 text-rose-300 text-xs px-2.5 py-1.5 rounded-lg border border-rose-500/30">刪除</button>
                         )}
@@ -1595,12 +1923,16 @@
                       // 總召仍可被指派，因此保留 admin；老師雖同為最高權限，不能被選入班表。
                       const deptMembers = role.key === 'intern'
                         ? members.filter(m => m.role === 'intern')
-                        : members.filter(m => m.role !== 'teacher' && m.role !== 'intern' && (m.dept === role.deptKey || m.role === 'admin'));
+                        : (role.key === 'cam1' || role.key === 'cam2')
+                          ? members.filter(m => m.role !== 'teacher' && m.role !== 'intern' && (m.dept === 'cam1' || m.dept === 'cam2' || m.dept === 'camera'))
+                          : members.filter(m => m.role !== 'teacher' && m.role !== 'intern' && (m.dept === role.deptKey || m.role === 'admin'));
                       const selectedMembers = assignedIds.map(id => members.find(m => m.id === id)).filter(Boolean);
                       const isCrossOpen = crossSupportRole === role.key;
                       const supportMembers = crossSupportDept === 'intern'
                         ? members.filter(m => m.role === 'intern')
-                        : members.filter(m => m.role !== 'teacher' && m.role !== 'intern' && (m.dept === crossSupportDept || m.role === 'admin'));
+                        : (crossSupportDept === 'cam1' || crossSupportDept === 'cam2')
+                          ? members.filter(m => m.role !== 'teacher' && m.role !== 'intern' && (m.dept === 'cam1' || m.dept === 'cam2' || m.dept === 'camera'))
+                          : members.filter(m => m.role !== 'teacher' && m.role !== 'intern' && (m.dept === crossSupportDept || (crossSupportDept === 'camera' && (m.dept === 'cam1' || m.dept === 'cam2' || m.dept === 'camera')) || m.role === 'admin'));
 
                       return <div key={role.key} className="bg-slate-900/80 p-3 rounded-xl border border-slate-700 space-y-2">
                         <div className="flex items-center justify-between text-xs font-bold text-slate-200">
@@ -1620,7 +1952,9 @@
                         <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 pt-1">
                           {deptMembers.map(m => {
                             const isChecked = assignedIds.includes(m.id);
-                            return <button type="button" key={m.id} onClick={() => handleToggleMemberAssignment(role.key, m.id)} className={`p-2 rounded-lg text-xs flex items-center justify-between border transition-all ${isChecked ? 'bg-indigo-600 text-white font-bold border-indigo-400' : 'bg-slate-800 text-slate-300 border-slate-700'}`}>
+                            const otherCamera = role.key === 'cam1' ? 'cam2' : role.key === 'cam2' ? 'cam1' : null;
+                            const isCameraConflict = !!otherCamera && Array.isArray(assignments[otherCamera]) && assignments[otherCamera].includes(m.id) && !isChecked;
+                            return <button type="button" key={m.id} disabled={isCameraConflict} onClick={() => handleToggleMemberAssignment(role.key, m.id)} className={`p-2 rounded-lg text-xs flex items-center justify-between border transition-all ${isChecked ? 'bg-indigo-600 text-white font-bold border-indigo-400' : isCameraConflict ? 'bg-slate-950 text-slate-600 border-slate-800 cursor-not-allowed opacity-60' : 'bg-slate-800 text-slate-300 border-slate-700'}`}>
                               <div className="truncate text-left"><div className="truncate">{m.name}</div><div className={`text-[9px] ${isChecked ? 'text-indigo-200' : 'text-slate-400'}`}>{m.title}</div></div>
                               <span className={`text-[10px] ml-1 px-1 rounded ${isChecked ? 'bg-indigo-700 text-white' : 'text-slate-500'}`}>{isChecked ? '✓' : '+'}</span>
                             </button>;
@@ -1630,12 +1964,14 @@
                         {isCrossOpen && <div className="mt-2 rounded-lg border border-indigo-700/60 bg-indigo-950/40 p-2.5 space-y-2">
                           <div className="text-[10px] font-bold text-indigo-300">跨組支援：先選組別，再選人員</div>
                           <select value={crossSupportDept} onChange={e => setCrossSupportDept(e.target.value)} className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-white text-xs outline-none focus:border-indigo-500">
-                            {DUTY_ROLES.filter(r => r.key !== role.key).map(r => <option key={r.key} value={r.deptKey}>{r.label}</option>)}
+                            {DUTY_ROLES.filter(r => r.key !== role.key && !(('cam1' === role.key || 'cam2' === role.key) && (r.key === 'cam1' || r.key === 'cam2'))).map(r => (r.key === 'cam1' ? <option key="camera-group" value="camera">攝影組</option> : r.key === 'cam2' ? null : <option key={r.key} value={r.deptKey}>{r.label}</option>))}
                           </select>
                           <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
                             {supportMembers.map(m => {
                               const isChecked = assignedIds.includes(m.id);
-                              return <button type="button" key={`support-${role.key}-${m.id}`} onClick={() => handleToggleMemberAssignment(role.key, m.id)} className={`p-2 rounded-lg text-xs flex items-center justify-between border transition-all ${isChecked ? 'bg-indigo-600 text-white font-bold border-indigo-400' : 'bg-slate-800 text-slate-300 border-slate-700'}`}>
+                              const otherCamera = role.key === 'cam1' ? 'cam2' : role.key === 'cam2' ? 'cam1' : null;
+                              const isCameraConflict = !!otherCamera && Array.isArray(assignments[otherCamera]) && assignments[otherCamera].includes(m.id) && !isChecked;
+                              return <button type="button" key={`support-${role.key}-${m.id}`} disabled={isCameraConflict} onClick={() => handleToggleMemberAssignment(role.key, m.id)} className={`p-2 rounded-lg text-xs flex items-center justify-between border transition-all ${isChecked ? 'bg-indigo-600 text-white font-bold border-indigo-400' : isCameraConflict ? 'bg-slate-950 text-slate-600 border-slate-800 cursor-not-allowed opacity-60' : 'bg-slate-800 text-slate-300 border-slate-700'}`}>
                                 <div className="truncate text-left"><div className="truncate">{m.name}</div><div className={`text-[9px] ${isChecked ? 'text-indigo-200' : 'text-slate-400'}`}>{m.title}</div></div>
                                 <span className={`text-[10px] ml-1 px-1 rounded ${isChecked ? 'bg-indigo-700 text-white' : 'text-slate-500'}`}>{isChecked ? '✓' : '+'}</span>
                               </button>;
@@ -1646,7 +1982,7 @@
                     })}
 
                     <div className="rounded-lg border border-slate-700 bg-slate-900/50 px-3 py-2">
-                      <div className="text-[10px] text-slate-400 mb-1">所有組別的已選人員會保留，切換不會取消；老師不列入班表，實習生僅可安排在實習生崗位：</div>
+                      <div className="text-[10px] text-slate-400 mb-1">所有組別的已選人員會保留，切換不會取消；老師不列入班表，實習生僅可安排在實習生崗位；CAM1 / CAM2 共用攝影組名單；總覽月班表分開顯示 CAM1、CAM2，且同一人只能選其中一個：</div>
                       <div className="flex flex-wrap gap-1.5">
                         {DUTY_ROLES.flatMap(role => ((editingScheduleData.assignments || {})[role.key] || []).map(id => {
                           const m = members.find(x => x.id === id);
@@ -1676,7 +2012,7 @@
                 <form onSubmit={handleRequestSwap} className="space-y-3 text-xs">
                   <div>
                     <label className="block text-slate-400 mb-1">目標日期 (請選擇您被排程的班)</label>
-                    <select name="targetDate" required className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white">
+                    <select name="targetDate" value={selectedSwapDate || userScheduledDates[0]?.date || ''} onChange={e => setSelectedSwapDate(e.target.value)} required className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white">
                       {userScheduledDates.length > 0 ? (
                         userScheduledDates.map((item, idx) => (
                           <option key={idx} value={item.date}>{item.date} - {item.title}</option>
@@ -1687,10 +2023,11 @@
                     </select>
                   </div>
                   <div>
-                    <label className="block text-slate-400 mb-1">工作崗位</label>
-                    <select name="roleLabel" className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2 text-white">
-                      {DUTY_ROLES.map(r => <option key={r.key} value={r.label}>{r.label}</option>)}
-                    </select>
+                    <label className="block text-slate-400 mb-1">工作崗位（依日期自動判斷）</label>
+                    <input type="hidden" name="roleLabel" value={getWorkRoleForDate(selectedSwapDate)} />
+                    <div className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white min-h-[42px]">
+                      {getWorkRoleForDate(selectedSwapDate) || '請先選擇你被排程的日期'}
+                    </div>
                   </div>
                   <div>
                     <label className="block text-slate-400 mb-1">請假理由</label>
@@ -1698,7 +2035,7 @@
                   </div>
                   <div className="flex justify-end space-x-2 pt-2 border-t border-slate-700">
                     <button type="button" onClick={() => setIsSwapModalOpen(false)} className="px-3 py-1.5 bg-slate-700 text-slate-300 rounded-xl">取消</button>
-                    <button type="submit" disabled={userScheduledDates.length === 0} className="px-3 py-1.5 bg-indigo-600 text-white rounded-xl disabled:opacity-50 disabled:cursor-not-allowed">送出申請</button>
+                    <button type="submit" disabled={userScheduledDates.length === 0 || !getWorkRoleForDate(selectedSwapDate || userScheduledDates[0]?.date)} className="px-3 py-1.5 bg-indigo-600 text-white rounded-xl disabled:opacity-50 disabled:cursor-not-allowed">送出申請</button>
                   </div>
                 </form>
               </div>
@@ -1749,12 +2086,11 @@
                     <>
                       <div>
                         <label className="block text-slate-400 mb-1">所屬組別</label>
-                        <select name="dept" defaultValue={editingMemberData?.dept || 'director'} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2 text-white">
+                        <select name="dept" defaultValue={(['cam1','cam2','camera'].includes(editingMemberData?.dept) ? 'camera' : (editingMemberData?.dept || 'director'))} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2 text-white">
                           <option value="admin">總召辦公室</option>
                           <option value="director">導播組</option>
                           <option value="audio">音控組</option>
-                          <option value="cam1">CAM1 攝影組</option>
-                          <option value="cam2">CAM2 攝影組</option>
+                          <option value="camera">攝影組</option>
                           <option value="slides">簡報組</option>
                           <option value="intern">實習生</option>
                         </select>
@@ -1764,7 +2100,7 @@
                         <input name="title" defaultValue={editingMemberData?.title || '直播實習生'} required placeholder="例：導播組長、直播實習生" className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2 text-white" />
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                        <div><label className="block text-slate-400 mb-1">{editingMemberData?.role === 'teacher' ? '處室' : '班級'}</label><input name="className" defaultValue={editingMemberData?.className || ''} placeholder={editingMemberData?.role === 'teacher' ? '例：學務處、教務處' : '例：高二乙'} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2 text-white" /></div>
+                        <div><label className="block text-slate-400 mb-1">{memberFormRole === 'teacher' ? '處室' : '班級'}</label><input name="className" defaultValue={editingMemberData?.className || ''} placeholder={memberFormRole === 'teacher' ? '例：學務處、教務處' : '例：高二乙'} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2 text-white" /></div>
                         <div><label className="block text-slate-400 mb-1">Email</label><input type="email" name="email" defaultValue={editingMemberData?.email || ''} placeholder="name@example.com" className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2 text-white" /></div>
                       </div>
                     </>
@@ -1783,7 +2119,7 @@
                   {!isPersonalSettings && isHighPrivilege(currentUser.role) && (
                     <div>
                       <label className="block text-slate-400 mb-1">系統權限層級</label>
-                      <select name="role" defaultValue={editingMemberData?.role || 'member'} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2 text-white">
+                      <select name="role" value={memberFormRole} onChange={e => setMemberFormRole(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2 text-white">
                         <option value="member">組員</option>
                         <option value="intern">實習生</option>
                         <option value="leader">組長</option>
