@@ -234,6 +234,7 @@
       const [isPersonalSettings, setIsPersonalSettings] = useState(false);
       const [memberFormRole, setMemberFormRole] = useState('member');
       const [selectedSwapDate, setSelectedSwapDate] = useState('');
+      const [selectedSwapScheduleId, setSelectedSwapScheduleId] = useState('');
       const [swapRequestType, setSwapRequestType] = useState('live');
 
       const [avatarBase64, setAvatarBase64] = useState('');
@@ -425,9 +426,24 @@
 
       useEffect(() => {
         if (window.lucide) {
-          try { window.lucide.createIcons(); } catch(err) {}
+          try { window.lucide.createIcons(); } catch(err) { console.warn('Lucide icons render skipped:', err); }
         }
-      });
+      }, [currentUser, activeTab, isMobileMenuOpen, isEditingSchedule, isSwapModalOpen, isRepairModalOpen, isSuggestionModalOpen, isMemberModalOpen, dialogState.open]);
+
+      // 登入姓名選擇：只更新 React state，不直接操作 DOM，避免切換/取消時頁面崩潰。
+      const handleSelectLoginMember = (memberId) => {
+        const id = String(memberId ?? '');
+        setLoginMemberId(id);
+        setLoginPassword('');
+        setLoginError('');
+      };
+
+      const handleClearLoginMember = (e) => {
+        if (e) e.preventDefault();
+        setLoginMemberId('');
+        setLoginPassword('');
+        setLoginError('');
+      };
 
       const handleLogin = (e) => {
         e.preventDefault();
@@ -605,16 +621,20 @@
         return { sent: grouped.size - failed, failed, skipped: !hasEmailConfig };
       };
 
-      const getWorkRoleForDate = (date, memberId = currentUser?.id) => {
-        if (!date || !memberId) return '';
-        const schedule = schedules.find(s => s.date === date);
-        if (!schedule) return '';
-        return getMemberWorkRoles(schedule, memberId).join('、');
+      // 找到「這個人自己被排到」的班表，而不是只找同一天的第一張班表。
+      // 同一天可能有多場活動；直接用 schedules.find(s => s.date === date) 會誤抓到別人的班，
+      // 造成「日期明明可以選，崗位卻顯示空白」的問題。
+      const getScheduleForUserDate = (dateOrScheduleId, memberId = currentUser?.id) => {
+        if (!dateOrScheduleId || !memberId) return null;
+        const exact = schedules.find(s => s.id === dateOrScheduleId && isUserInSchedule(s, memberId));
+        if (exact) return exact;
+        return schedules.find(s => s.date === dateOrScheduleId && isUserInSchedule(s, memberId)) || null;
       };
 
-      const getScheduleForUserDate = (date, memberId = currentUser?.id) => {
-        if (!date || !memberId) return null;
-        return schedules.find(s => s.date === date && isUserInSchedule(s, memberId)) || null;
+      const getWorkRoleForDate = (dateOrScheduleId, memberId = currentUser?.id) => {
+        const schedule = getScheduleForUserDate(dateOrScheduleId, memberId);
+        if (!schedule) return '';
+        return getMemberWorkRoles(schedule, memberId).join('、');
       };
 
       // 需求 2：確保所有送出功能帶有容錯處理，保證必能寫入與送出
@@ -873,9 +893,11 @@
         if (isSaving) return;
 
         const formData = new FormData(e.target);
-        const targetDate = formData.get('targetDate');
-        const workRole = getWorkRoleForDate(targetDate);
-        const targetSchedule = getScheduleForUserDate(targetDate);
+        const selectedScheduleId = String(formData.get('targetScheduleId') || effectiveSwapScheduleId || '');
+        const targetSchedule = schedules.find(s => String(s.id || '') === selectedScheduleId && isUserInSchedule(s, currentUser.id))
+          || getScheduleForUserDate(selectedScheduleId, currentUser.id);
+        const targetDate = targetSchedule?.date || '';
+        const workRole = targetSchedule ? getMemberWorkRoles(targetSchedule, currentUser.id).join('、') : '';
         if (!workRole || !targetSchedule) {
           showToast('這個日期找不到你的班表崗位，請重新選擇日期。', 'error');
           return;
@@ -994,6 +1016,7 @@
 
           setIsSwapModalOpen(false);
           setSelectedSwapDate('');
+          setSelectedSwapScheduleId('');
           if (e.target?.reset) e.target.reset();
         } catch (err) {
           console.error('送出請假／換班申請失敗:', err);
@@ -1174,16 +1197,35 @@
 
       const userScheduledDates = useMemo(() => {
         if (!currentUser) return [];
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        return sortedSchedules.filter(sch => {
-          const d = new Date(`${sch.date || ''}T00:00:00`);
-          return isUserInSchedule(sch, currentUser.id) && !Number.isNaN(d.getTime()) && d >= today;
-        }).map(sch => ({
-          date: sch.date,
-          title: sch.title
-        }));
+        const seenIds = new Set();
+        return sortedSchedules
+          .filter(sch => isUserInSchedule(sch, currentUser.id) && !isScheduleEnded(sch))
+          .map((sch, index) => ({
+            date: sch.date || '',
+            title: sch.title || '直播班表',
+            scheduleId: String(sch.id || `${sch.date || ''}|${sch.title || ''}|${index}`)
+          }))
+          .filter(item => {
+            if (seenIds.has(item.scheduleId)) return false;
+            seenIds.add(item.scheduleId);
+            return true;
+          });
       }, [sortedSchedules, currentUser]);
+
+      // 假單選擇永遠使用「班表文件 ID」，不再用日期或混合 state 控制 select。
+      // 同一天有多場活動時，也能穩定區分每一張班表。
+      const effectiveSwapScheduleId = useMemo(() => {
+        const validIds = new Set(userScheduledDates.map(item => item.scheduleId));
+        return validIds.has(selectedSwapScheduleId)
+          ? selectedSwapScheduleId
+          : (userScheduledDates[0]?.scheduleId || '');
+      }, [selectedSwapScheduleId, userScheduledDates]);
+
+      const effectiveSwapSchedule = useMemo(() => {
+        return schedules.find(s => s.id === effectiveSwapScheduleId) || null;
+      }, [schedules, effectiveSwapScheduleId]);
+
+      const effectiveSwapDate = effectiveSwapSchedule?.date || '';
 
       const sortedMembers = useMemo(() => {
         const roleOrder = { admin: 1, teacher: 1, leader: 2, member: 3, intern: 4 };
@@ -1255,7 +1297,7 @@
                     {filteredLoginMembers.length > 0 ? filteredLoginMembers.map(m => {
                       const selected = loginMemberId === m.id;
                       return <button key={m.id} type="button" onClick={() => { setLoginMemberId(m.id); setLoginError(''); }} className={`w-full text-left flex items-center justify-between gap-2 px-3 py-2.5 rounded-lg transition ${selected ? 'bg-indigo-600/30 border border-indigo-500/60' : 'hover:bg-slate-800 border border-transparent'}`}>
-                        <div className="min-w-0"><div className="font-bold text-white text-sm truncate">{m.name}</div><div className="text-[10px] text-slate-400 truncate">{getDepartmentLabel(m)} · {m.title || '組員'}</div></div>
+                        <div className="min-w-0"><div className="font-bold text-white text-sm truncate">{String(m.name || '未命名成員')}</div><div className="text-[10px] text-slate-400 truncate">{getDepartmentLabel(m) || '未分類'} · {m.title || '組員'}</div></div>
                         {selected && <i data-lucide="check" className="w-4 h-4 text-indigo-300 flex-shrink-0"></i>}
                       </button>;
                     }) : <div className="text-center text-slate-500 py-5">找不到符合的人員</div>}
@@ -1530,7 +1572,7 @@
                       <i data-lucide="user-check" className="w-4 h-4 mr-1.5 text-indigo-400"></i>
                       【{currentUser.name}】個人近期負責工作
                     </h3>
-                    <button onClick={() => { setSelectedSwapDate(userScheduledDates[0]?.date || ''); setIsSwapModalOpen(true); }} className="bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs px-3 py-1.5 rounded-xl transition flex items-center space-x-1">
+                    <button onClick={() => { setSelectedSwapDate(userScheduledDates[0]?.scheduleId || ''); setIsSwapModalOpen(true); }} className="bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs px-3 py-1.5 rounded-xl transition flex items-center space-x-1">
                       <i data-lucide="arrow-left-right" className="w-3.5 h-3.5"></i>
                       <span>申請請假 / 換班</span>
                     </button>
@@ -1880,7 +1922,7 @@
                     <h2 className="text-lg font-bold text-white">請假與換班審核中心</h2>
                     <p className="text-xs text-slate-400">審核並查看歷史紀錄</p>
                   </div>
-                  <button onClick={() => { setSelectedSwapDate(userScheduledDates[0]?.date || ''); setIsSwapModalOpen(true); }} className="bg-indigo-600 text-white text-xs px-3 py-2 rounded-xl font-medium">+ 提出申請</button>
+                  <button onClick={() => { setSelectedSwapDate(userScheduledDates[0]?.scheduleId || ''); setIsSwapModalOpen(true); }} className="bg-indigo-600 text-white text-xs px-3 py-2 rounded-xl font-medium">+ 提出申請</button>
                 </div>
 
                 <div className="space-y-3">
@@ -2270,10 +2312,18 @@
                   </div>
                   <div>
                     <label className="block text-slate-400 mb-1">目標日期 (請選擇您被排程的班)</label>
-                    <select name="targetDate" value={selectedSwapDate || userScheduledDates[0]?.date || ''} onChange={e => setSelectedSwapDate(e.target.value)} required className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white">
+                    <select
+                      name="targetScheduleId"
+                      value={effectiveSwapScheduleId}
+                      onChange={e => setSelectedSwapScheduleId(String(e.target.value || ''))}
+                      required
+                      className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white"
+                    >
                       {userScheduledDates.length > 0 ? (
                         userScheduledDates.map((item, idx) => (
-                          <option key={idx} value={item.date}>{item.date} - {item.title}</option>
+                          <option key={`${item.scheduleId}-${idx}`} value={item.scheduleId}>
+                            {item.date} - {item.title}
+                          </option>
                         ))
                       ) : (
                         <option value="" disabled>目前您近期無排程班表</option>
@@ -2282,16 +2332,16 @@
                   </div>
                   <div>
                     <label className="block text-slate-400 mb-1">工作崗位（依日期自動判斷）</label>
-                    <input type="hidden" name="roleLabel" value={getWorkRoleForDate(selectedSwapDate)} />
+                    <input type="hidden" name="roleLabel" value={getWorkRoleForDate(effectiveSwapScheduleId)} />
                     <div className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white min-h-[42px]">
-                      {getWorkRoleForDate(selectedSwapDate) || '請先選擇你被排程的日期'}
+                      {getWorkRoleForDate(effectiveSwapScheduleId) || '請先選擇你被排程的日期'}
                     </div>
                   </div>
                   {swapRequestType === 'preparation' && (() => {
-                    const s = getScheduleForUserDate(selectedSwapDate || userScheduledDates[0]?.date);
+                    const s = effectiveSwapSchedule;
                     return <div className="rounded-xl border border-indigo-500/30 bg-indigo-950/30 p-3">
                       <div className="text-[11px] font-bold text-indigo-300">前置作業資訊</div>
-                      <div className="text-xs text-slate-300 mt-1">日期：{s?.preparationDate || selectedSwapDate || '未設定'}</div>
+                      <div className="text-xs text-slate-300 mt-1">日期：{s?.preparationDate || effectiveSwapDate || '未設定'}</div>
                       <div className="text-xs text-slate-300">時間：{s?.preparationTime || '班表尚未設定前置時間'}</div>
                       <div className="text-[10px] text-slate-500 mt-1">此申請只代表無法參與前置作業，不代表無法參與正式直播。</div>
                     </div>;
@@ -2302,7 +2352,7 @@
                   </div>
                   <div className="flex justify-end space-x-2 pt-2 border-t border-slate-700">
                     <button type="button" onClick={() => setIsSwapModalOpen(false)} className="px-3 py-1.5 bg-slate-700 text-slate-300 rounded-xl">取消</button>
-                    <button type="submit" disabled={isSaving || userScheduledDates.length === 0 || !getWorkRoleForDate(selectedSwapDate || userScheduledDates[0]?.date)} className="px-3 py-1.5 bg-indigo-600 text-white rounded-xl font-bold disabled:opacity-50 disabled:cursor-not-allowed">{isSaving ? '送出中…' : '送出申請'}</button>
+                    <button type="submit" disabled={isSaving || userScheduledDates.length === 0 || !getWorkRoleForDate(effectiveSwapDate)} className="px-3 py-1.5 bg-indigo-600 text-white rounded-xl font-bold disabled:opacity-50 disabled:cursor-not-allowed">{isSaving ? '送出中…' : '送出申請'}</button>
                   </div>
                 </form>
               </div>
