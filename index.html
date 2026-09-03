@@ -223,6 +223,7 @@
       const [editingScheduleData, setEditingScheduleData] = useState(null);
       const [crossSupportRole, setCrossSupportRole] = useState(null);
       const [crossSupportDept, setCrossSupportDept] = useState('audio');
+      const [crossSupportAssignments, setCrossSupportAssignments] = useState({});
 
       const [isSwapModalOpen, setIsSwapModalOpen] = useState(false);
       const [isRepairModalOpen, setIsRepairModalOpen] = useState(false);
@@ -233,6 +234,7 @@
       const [isPersonalSettings, setIsPersonalSettings] = useState(false);
       const [memberFormRole, setMemberFormRole] = useState('member');
       const [selectedSwapDate, setSelectedSwapDate] = useState('');
+      const [swapRequestType, setSwapRequestType] = useState('live');
 
       const [avatarBase64, setAvatarBase64] = useState('');
 
@@ -405,7 +407,7 @@
             const data = { ...d.data(), id: d.data().id || d.id };
             if (seenIds.has(data.id)) return;
             if (data.status === 'pending') {
-              const pendingKey = `${data.requesterId || data.requester || ''}|${data.targetDate || ''}|${data.roleLabel || ''}`;
+              const pendingKey = `${data.requesterId || data.requester || ''}|${data.targetDate || ''}|${data.roleLabel || ''}|${data.requestType || 'live'}`;
               if (seenPendingKeys.has(pendingKey)) return;
               seenPendingKeys.add(pendingKey);
             }
@@ -578,7 +580,9 @@
             time: schedule.time || '',
             position: roles.join('、'),
             group: getDepartmentLabel(member),
-            message: `請準時到場，謝謝。\n\n如有任何問題，請登入明道中學直播團隊系統查看。`,
+            message: `${schedule.preparationDate || schedule.preparationTime ? `前置日期：${schedule.preparationDate || '未設定'}\n前置時間：${schedule.preparationTime || '未設定'}\n\n` : ''}請準時到場，謝謝。\n\n如有任何問題，請登入明道中學直播團隊系統查看。`,
+            preparation_date: schedule.preparationDate || '',
+            preparation_time: schedule.preparationTime || '',
             // 保留其他舊版欄位，避免既有模板或測試功能受影響。
             to_name: member.name,
             member_name: member.name,
@@ -606,6 +610,11 @@
         const schedule = schedules.find(s => s.date === date);
         if (!schedule) return '';
         return getMemberWorkRoles(schedule, memberId).join('、');
+      };
+
+      const getScheduleForUserDate = (date, memberId = currentUser?.id) => {
+        if (!date || !memberId) return null;
+        return schedules.find(s => s.date === date && isUserInSchedule(s, memberId)) || null;
       };
 
       // 需求 2：確保所有送出功能帶有容錯處理，保證必能寫入與送出
@@ -685,15 +694,29 @@
             date: new Date().toISOString().split('T')[0],
             title: '新朝會排班',
             time: '07:30 - 08:20',
+            preparationDate: '',
+            preparationTime: '',
             assignments: { director: [], audio: [], cam1: [], cam2: [], slides: [], intern: [] }
           });
         }
         setCrossSupportRole(null);
         setCrossSupportDept('audio');
+        const sourceAssignments = (sch?.assignments || {});
+        const inferredCross = {};
+        DUTY_ROLES.forEach(r => {
+          const ids = Array.isArray(sourceAssignments[r.key]) ? sourceAssignments[r.key] : [];
+          const natural = r.key === 'intern' ? [] : (r.key === 'cam1' || r.key === 'cam2' ? ['camera','cam1','cam2'] : [r.deptKey]);
+          inferredCross[r.key] = ids.filter(id => {
+            const m = members.find(mm => mm.id === id);
+            if (!m || m.role === 'teacher' || m.role === 'intern' || m.role === 'admin') return false;
+            return r.key !== 'cam1' && r.key !== 'cam2' && !natural.includes(m.dept);
+          });
+        });
+        setCrossSupportAssignments(inferredCross);
         setIsEditingSchedule(true);
       };
 
-      const handleToggleMemberAssignment = (roleKey, memberId) => {
+      const handleToggleMemberAssignment = (roleKey, memberId, fromCrossSupport = false) => {
         if (!editingScheduleData) return;
         setEditingScheduleData(prev => {
           if (!prev) return null;
@@ -715,6 +738,14 @@
             }
             nextAssignments[roleKey] = [...currentList, memberId];
           }
+          setCrossSupportAssignments(prev => {
+            const next = { ...prev };
+            const list = Array.isArray(next[roleKey]) ? next[roleKey] : [];
+            if (isAssigned) next[roleKey] = list.filter(id => id !== memberId);
+            else if (fromCrossSupport && !list.includes(memberId)) next[roleKey] = [...list, memberId];
+            else next[roleKey] = list.filter(id => id !== memberId);
+            return next;
+          });
           return { ...prev, assignments: nextAssignments };
         });
       };
@@ -739,7 +770,9 @@
               const member = members.find(m => m.id === id);
               if (!member || member.role === 'teacher') return false;
               if (member.role === 'intern') return role.key === 'intern';
-              if (role.key === 'cam1' || role.key === 'cam2') return member.dept === 'camera' || member.dept === 'cam1' || member.dept === 'cam2';
+              // 一般選人仍依組別提供名單；但凡是透過「跨組支援」加入的人，
+              // 儲存時不再因為原本所屬組別不同而被刪除。此處允許所有非老師、非實習生
+              // 成員保留在非實習生崗位，確保跨組支援確實寫入 Firebase。
               return role.key !== 'intern';
             });
           });
@@ -842,17 +875,20 @@
         const formData = new FormData(e.target);
         const targetDate = formData.get('targetDate');
         const workRole = getWorkRoleForDate(targetDate);
-        if (!workRole) {
+        const targetSchedule = getScheduleForUserDate(targetDate);
+        if (!workRole || !targetSchedule) {
           showToast('這個日期找不到你的班表崗位，請重新選擇日期。', 'error');
           return;
         }
+        const requestType = formData.get('requestType') || swapRequestType || 'live';
 
         // 防止同一人對同一日期／崗位重複送出待審申請。
         const duplicatePending = swaps.some(sw =>
           sw.status === 'pending' &&
           (sw.requesterId === currentUser.id || sw.requester === currentUser.name) &&
           sw.targetDate === targetDate &&
-          sw.roleLabel === workRole
+          sw.roleLabel === workRole &&
+          (sw.requestType || 'live') === requestType
         );
         if (duplicatePending) {
           showToast('你已經有一筆相同日期與崗位的申請正在審核中，請勿重複送出。', 'error');
@@ -866,6 +902,9 @@
           requesterEmail: currentUser.email || '',
           targetDate,
           roleLabel: workRole,
+          requestType,
+          preparationDate: targetSchedule.preparationDate || '',
+          preparationTime: targetSchedule.preparationTime || '',
           reason: formData.get('reason'),
           status: 'pending',
           reviewerNote: '',
@@ -881,29 +920,34 @@
               sw.status === 'pending' &&
               (sw.requesterId === newSwap.requesterId || sw.requester === newSwap.requester) &&
               sw.targetDate === newSwap.targetDate &&
-              sw.roleLabel === newSwap.roleLabel
+              sw.roleLabel === newSwap.roleLabel &&
+              (sw.requestType || 'live') === (newSwap.requestType || 'live')
             ));
             return [newSwap, ...filtered];
           });
 
           const commonParams = {
             to_name: currentUser.name,
-            mail_title: '請假／換班申請',
+            mail_title: requestType === 'preparation' ? '前置作業請假申請' : '請假／換班申請',
             name: currentUser.name,
-            intro: '您提交的請假／換班申請如下：',
-            date: targetDate || '',
+            intro: requestType === 'preparation' ? '您提交的前置作業無法參與申請如下：' : '您提交的請假／換班申請如下：',
+            date: requestType === 'preparation' ? (targetSchedule.preparationDate || targetDate || '') : (targetDate || ''),
             position: workRole || '',
             group: getDepartmentLabel(currentUser),
             reason: newSwap.reason || '',
             status: '審核中',
             review_note: '',
-            message: '申請已送出，請等待總召審核。',
+            message: requestType === 'preparation'
+              ? `申請類型：前置作業無法參與。${targetSchedule.preparationTime ? `前置時間：${targetSchedule.preparationTime}。` : ''}請等待總召審核。`
+              : '申請已送出，請等待總召審核。',
             member_name: currentUser.name,
             action: '請假／換班申請已送出',
             target_date: targetDate,
             work_role: workRole,
+            preparation_date: targetSchedule.preparationDate || '',
+            preparation_time: targetSchedule.preparationTime || '',
             reviewer_note: '',
-            content: `日期：${targetDate}｜工作：${workRole}｜狀態：審核中｜原因：${newSwap.reason || ''}`
+            content: `類型：${requestType === 'preparation' ? '前置作業無法參與' : '請假／換班'}｜日期：${targetDate}｜工作：${workRole}｜狀態：審核中｜原因：${newSwap.reason || ''}`
           };
 
           // 申請人自己的確認信（沒有 Email 就跳過，不影響申請）。
@@ -925,7 +969,9 @@
               name: admin.name,
               intro: `${currentUser.name} 提出了一筆請假／換班申請，請登入系統審核：`,
               group: getDepartmentLabel(currentUser),
-              message: `申請人：${currentUser.name}\n申請已送出，請登入明道中學直播團隊系統進行審核。`
+              message: `申請人：${currentUser.name}
+申請類型：${requestType === 'preparation' ? '前置作業無法參與' : '請假／換班'}
+請登入明道中學直播團隊系統進行審核。`
             });
             if (result.ok) adminSent++;
             else if (!result.skipped) adminFailed++;
@@ -2093,6 +2139,16 @@
                       <input value={editingScheduleData.time || ''} onChange={(e) => setEditingScheduleData({...editingScheduleData, time: e.target.value})} required className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white" />
                     </div>
                   </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-slate-400 mb-1">前置日期 <span className="text-slate-600">（可留空）</span></label>
+                      <input type="date" value={editingScheduleData.preparationDate || ''} onChange={(e) => setEditingScheduleData({...editingScheduleData, preparationDate: e.target.value})} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white" />
+                    </div>
+                    <div>
+                      <label className="block text-slate-400 mb-1">前置時間 <span className="text-slate-600">（可留空）</span></label>
+                      <input value={editingScheduleData.preparationTime || ''} onChange={(e) => setEditingScheduleData({...editingScheduleData, preparationTime: e.target.value})} placeholder="例：16:30 - 18:00" className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white" />
+                    </div>
+                  </div>
 
                   <div className="space-y-3 border-t border-slate-700 pt-3">
                     <div>
@@ -2120,7 +2176,13 @@
                       return <div key={role.key} className="bg-slate-900/80 p-3 rounded-xl border border-slate-700 space-y-2">
                         <div className="flex items-center justify-between text-xs font-bold text-slate-200">
                           <span>{role.label} <span className="ml-1 text-[10px] bg-slate-800 text-slate-400 px-2 py-0.5 rounded font-normal">已選 {assignedIds.length} 人</span></span>
-                          <button type="button" onClick={() => { setCrossSupportRole(isCrossOpen ? null : role.key); if (!isCrossOpen) setCrossSupportDept(DUTY_ROLES.find(r => r.key !== role.key)?.deptKey || 'audio'); }} className="text-[11px] text-indigo-400 underline whitespace-nowrap">
+                          <button type="button" onClick={() => {
+                            setCrossSupportRole(isCrossOpen ? null : role.key);
+                            if (!isCrossOpen) {
+                              const firstGroup = ['director','audio','camera','slides','intern'].find(g => !(role.key === 'intern' && g === 'intern') && g !== role.deptKey) || 'audio';
+                              setCrossSupportDept(firstGroup);
+                            }
+                          }} className="text-[11px] text-indigo-400 underline whitespace-nowrap">
                             {isCrossOpen ? '收起跨組支援' : '+ 跨組支援'}
                           </button>
                         </div>
@@ -2145,16 +2207,22 @@
                         </div>
 
                         {isCrossOpen && <div className="mt-2 rounded-lg border border-indigo-700/60 bg-indigo-950/40 p-2.5 space-y-2">
-                          <div className="text-[10px] font-bold text-indigo-300">跨組支援：先選組別，再選人員</div>
+                          <div className="text-[10px] font-bold text-indigo-300">跨組支援：先選組別，再選人員（選取後會保留於此崗位）</div>
                           <select value={crossSupportDept} onChange={e => setCrossSupportDept(e.target.value)} className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-white text-xs outline-none focus:border-indigo-500">
-                            {DUTY_ROLES.filter(r => r.key !== role.key && !(('cam1' === role.key || 'cam2' === role.key) && (r.key === 'cam1' || r.key === 'cam2'))).map(r => (r.key === 'cam1' ? <option key="camera-group" value="camera">攝影組</option> : r.key === 'cam2' ? null : <option key={r.key} value={r.deptKey}>{r.label}</option>))}
+                            {[
+                              { key: 'director', label: '導播組', value: 'director' },
+                              { key: 'audio', label: '音控組', value: 'audio' },
+                              { key: 'camera', label: '攝影組', value: 'camera' },
+                              { key: 'slides', label: '簡報/字卡組', value: 'slides' },
+                              { key: 'intern', label: '實習生', value: 'intern' }
+                            ].filter(g => !(role.key === 'intern' && g.value === 'intern')).map(g => <option key={g.key} value={g.value}>{g.label}</option>)}
                           </select>
                           <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
                             {supportMembers.map(m => {
                               const isChecked = assignedIds.includes(m.id);
                               const otherCamera = role.key === 'cam1' ? 'cam2' : role.key === 'cam2' ? 'cam1' : null;
                               const isCameraConflict = !!otherCamera && Array.isArray(assignments[otherCamera]) && assignments[otherCamera].includes(m.id) && !isChecked;
-                              return <button type="button" key={`support-${role.key}-${m.id}`} disabled={isCameraConflict} onClick={() => handleToggleMemberAssignment(role.key, m.id)} className={`p-2 rounded-lg text-xs flex items-center justify-between border transition-all ${isChecked ? 'bg-indigo-600 text-white font-bold border-indigo-400' : isCameraConflict ? 'bg-slate-950 text-slate-600 border-slate-800 cursor-not-allowed opacity-60' : 'bg-slate-800 text-slate-300 border-slate-700'}`}>
+                              return <button type="button" key={`support-${role.key}-${m.id}`} disabled={isCameraConflict} onClick={() => handleToggleMemberAssignment(role.key, m.id, true)} className={`p-2 rounded-lg text-xs flex items-center justify-between border transition-all ${isChecked ? 'bg-indigo-600 text-white font-bold border-indigo-400' : isCameraConflict ? 'bg-slate-950 text-slate-600 border-slate-800 cursor-not-allowed opacity-60' : 'bg-slate-800 text-slate-300 border-slate-700'}`}>
                                 <div className="truncate text-left"><div className="truncate">{m.name}</div><div className={`text-[9px] ${isChecked ? 'text-indigo-200' : 'text-slate-400'}`}>{m.title}</div></div>
                                 <span className={`text-[10px] ml-1 px-1 rounded ${isChecked ? 'bg-indigo-700 text-white' : 'text-slate-500'}`}>{isChecked ? '✓' : '+'}</span>
                               </button>;
@@ -2194,6 +2262,13 @@
                 </div>
                 <form onSubmit={handleRequestSwap} className="space-y-3 text-xs">
                   <div>
+                    <label className="block text-slate-400 mb-1">申請項目</label>
+                    <select name="requestType" value={swapRequestType} onChange={e => setSwapRequestType(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white">
+                      <option value="live">直播當日請假／換班</option>
+                      <option value="preparation">前置作業無法參與（直播仍可出席）</option>
+                    </select>
+                  </div>
+                  <div>
                     <label className="block text-slate-400 mb-1">目標日期 (請選擇您被排程的班)</label>
                     <select name="targetDate" value={selectedSwapDate || userScheduledDates[0]?.date || ''} onChange={e => setSelectedSwapDate(e.target.value)} required className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white">
                       {userScheduledDates.length > 0 ? (
@@ -2212,6 +2287,15 @@
                       {getWorkRoleForDate(selectedSwapDate) || '請先選擇你被排程的日期'}
                     </div>
                   </div>
+                  {swapRequestType === 'preparation' && (() => {
+                    const s = getScheduleForUserDate(selectedSwapDate || userScheduledDates[0]?.date);
+                    return <div className="rounded-xl border border-indigo-500/30 bg-indigo-950/30 p-3">
+                      <div className="text-[11px] font-bold text-indigo-300">前置作業資訊</div>
+                      <div className="text-xs text-slate-300 mt-1">日期：{s?.preparationDate || selectedSwapDate || '未設定'}</div>
+                      <div className="text-xs text-slate-300">時間：{s?.preparationTime || '班表尚未設定前置時間'}</div>
+                      <div className="text-[10px] text-slate-500 mt-1">此申請只代表無法參與前置作業，不代表無法參與正式直播。</div>
+                    </div>;
+                  })()}
                   <div>
                     <label className="block text-slate-400 mb-1">請假理由</label>
                     <textarea name="reason" rows="2" required placeholder="說明事由..." className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2 text-white"></textarea>
