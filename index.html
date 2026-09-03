@@ -1937,8 +1937,8 @@
                       <i data-lucide="users-round" className="w-5 h-5 text-indigo-400"></i>
                     </div>
                     <div>
-                      <h2 className="text-lg font-bold text-white">加入成員</h2>
-                      <p className="text-[11px] text-slate-400">查看直播團隊所有成員資訊</p>
+                      <h2 className="text-lg font-bold text-white">團隊成員</h2>
+                      <p className="text-[11px] text-slate-400">查看團隊所有成員資訊</p>
                     </div>
                   </div>
                   {isHighPrivilege(currentUser.role) && (
@@ -2207,7 +2207,7 @@
                         </div>
 
                         {isCrossOpen && <div className="mt-2 rounded-lg border border-indigo-700/60 bg-indigo-950/40 p-2.5 space-y-2">
-                          <div className="text-[10px] font-bold text-indigo-300">跨組支援：先選組別，再選人員（選取後會保留於此崗位）</div>
+                          <div className="text-[10px] font-bold text-indigo-300">跨組支援：先選組別，再選人員</div>
                           <select value={crossSupportDept} onChange={e => setCrossSupportDept(e.target.value)} className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-white text-xs outline-none focus:border-indigo-500">
                             {[
                               { key: 'director', label: '導播組', value: 'director' },
