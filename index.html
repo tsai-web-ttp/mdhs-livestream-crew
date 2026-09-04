@@ -1266,15 +1266,23 @@
           return da - db;
         });
       }, [schedules]);
+
+      // 讓總覽會隨時間自動刷新；班表一到結束時間，就會即時從總覽移除。
+      const [nowTick, setNowTick] = useState(Date.now());
+      useEffect(() => {
+        const timer = setInterval(() => setNowTick(Date.now()), 30000);
+        return () => clearInterval(timer);
+      }, []);
+
+      const currentSchedules = useMemo(() => sortedSchedules.filter(s => !isScheduleEnded(s)), [sortedSchedules, nowTick]);
+      const historicalSchedules = useMemo(() => sortedSchedules.filter(s => isScheduleEnded(s)), [sortedSchedules, nowTick]);
+      // 總覽只顯示尚未結束的活動；活動一結束，就不再出現在下一場直播、月班表與即將到來區塊。
       const nextScheduleIndex = useMemo(() => {
         const now = new Date();
-        const idx = sortedSchedules.findIndex(s => new Date(`${s.date || ''}T${(s.time || '00:00').split(' - ')[0] || '00:00'}`) >= now);
-        return idx >= 0 ? idx : (sortedSchedules.length ? sortedSchedules.length - 1 : -1);
-      }, [sortedSchedules]);
-      const latestSchedule = useMemo(() => nextScheduleIndex >= 0 ? sortedSchedules[nextScheduleIndex] : null, [sortedSchedules, nextScheduleIndex]);
-      const upcomingSchedules = useMemo(() => nextScheduleIndex >= 0 ? sortedSchedules.slice(nextScheduleIndex + 1) : [], [sortedSchedules, nextScheduleIndex]);
-      const currentSchedules = useMemo(() => sortedSchedules.filter(s => !isScheduleEnded(s)), [sortedSchedules]);
-      const historicalSchedules = useMemo(() => sortedSchedules.filter(s => isScheduleEnded(s)), [sortedSchedules]);
+        return currentSchedules.findIndex(s => new Date(`${s.date || ''}T${(s.time || '00:00').split(' - ')[0] || '00:00'}`) >= now);
+      }, [currentSchedules]);
+      const latestSchedule = useMemo(() => nextScheduleIndex >= 0 ? currentSchedules[nextScheduleIndex] : null, [currentSchedules, nextScheduleIndex]);
+      const upcomingSchedules = useMemo(() => nextScheduleIndex >= 0 ? currentSchedules.slice(nextScheduleIndex + 1) : [], [currentSchedules, nextScheduleIndex]);
 
       const isUserInSchedule = (sch, userId) => {
         if (!sch || !sch.assignments) return false;
@@ -1296,7 +1304,7 @@
             seenIds.add(item.scheduleId);
             return true;
           });
-      }, [sortedSchedules, currentUser]);
+      }, [sortedSchedules, currentUser, nowTick]);
 
       // 假單選擇永遠使用「班表文件 ID」，不再用日期或混合 state 控制 select。
       // 同一天有多場活動時，也能穩定區分每一張班表。
@@ -1677,7 +1685,7 @@
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    {schedules.filter(sch => isUserInSchedule(sch, currentUser.id)).map(sch => {
+                    {currentSchedules.filter(sch => isUserInSchedule(sch, currentUser.id)).map(sch => {
                       const myAssignedRoles = DUTY_ROLES.filter(r => {
                         const ids = (sch.assignments && sch.assignments[r.key]) || [];
                         return ids.includes(currentUser.id);
@@ -1698,7 +1706,7 @@
                         </div>
                       );
                     })}
-                    {schedules.filter(sch => isUserInSchedule(sch, currentUser.id)).length === 0 && (
+                    {currentSchedules.filter(sch => isUserInSchedule(sch, currentUser.id)).length === 0 && (
                       <div className="text-xs text-slate-500 text-center py-4 sm:col-span-2">近期班表中暫無指派您的工作</div>
                     )}
                   </div>
@@ -1792,7 +1800,7 @@
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-800">
-                          {sortedSchedules.map(sch => (
+                          {currentSchedules.map(sch => (
                             <tr key={`month-${sch.id}`} className="hover:bg-slate-800/40">
                               <td className="px-3 py-2.5 text-xs font-mono text-indigo-300 whitespace-nowrap">{sch.date}</td>
                               <td className="px-3 py-2.5 text-xs font-semibold text-white min-w-[150px]">{sch.title || '未命名班表'}<div className="text-[10px] text-slate-500 mt-0.5">{sch.time || ''}</div></td>
