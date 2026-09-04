@@ -290,6 +290,7 @@
       const [editingMemberData, setEditingMemberData] = useState(null);
       const [isPersonalSettings, setIsPersonalSettings] = useState(false);
       const [memberFormRole, setMemberFormRole] = useState('member');
+      const [memberFormDept, setMemberFormDept] = useState('director');
       const [selectedSwapDate, setSelectedSwapDate] = useState('');
       const [selectedSwapScheduleId, setSelectedSwapScheduleId] = useState('');
       const [swapRequestType, setSwapRequestType] = useState('live');
@@ -786,10 +787,9 @@
             const ids = Array.isArray(assignments[key]) ? assignments[key] : [];
             assignments[key] = [...new Set(ids)].filter(id => {
               const member = members.find(m => m.id === id);
-              if (!member) return false;
-              if (member.role === 'teacher') return false;
-              if (member.role === 'intern') return key === 'intern';
-              return key !== 'intern';
+              if (!member || member.role === 'teacher') return false;
+              // 編輯既有班表時保留已存在的跨組支援人員；新的分組人選仍以所屬組別決定。
+              return true;
             });
           });
           cloned.assignments = assignments;
@@ -874,12 +874,9 @@
             const ids = Array.isArray(editingScheduleData.assignments?.[role.key]) ? editingScheduleData.assignments[role.key] : [];
             cleanedAssignments[role.key] = [...new Set(ids)].filter(id => {
               const member = members.find(m => m.id === id);
+              // 系統權限與班表所屬組別分離：所屬組別決定一般分組，跨組支援可突破組別。
               if (!member || member.role === 'teacher') return false;
-              if (member.role === 'intern') return role.key === 'intern';
-              // 一般選人仍依組別提供名單；但凡是透過「跨組支援」加入的人，
-              // 儲存時不再因為原本所屬組別不同而被刪除。此處允許所有非老師、非實習生
-              // 成員保留在非實習生崗位，確保跨組支援確實寫入 Firebase。
-              return role.key !== 'intern';
+              return true;
             });
           });
           // 最後一道互斥檢查：同一天 CAM1 / CAM2 不允許同一人。
@@ -1228,6 +1225,12 @@
           };
         }
 
+        // 總召不能隸屬於「實習生」或「司儀組」，前端與送出時都做雙重限制。
+        if (!isPersonalSettings && memberObj.role === 'admin' && ['intern', 'host'].includes(memberObj.dept)) {
+          showToast('司儀組及實習生不能設定為總召，請先修改所屬組別或權限層級。', 'error');
+          return;
+        }
+
         const normalizedPassword = String(memberObj.password || '').trim().toLowerCase();
         const duplicatePassword = members.find(m => m.id !== memberObj.id && String(m.password || '').trim().toLowerCase() === normalizedPassword);
         if (duplicatePassword) {
@@ -1504,7 +1507,7 @@
             </div>
 
             <div className="mt-6 pt-4 border-t border-slate-700 flex items-center justify-between">
-              <button onClick={() => { setEditingMemberData(currentUser); setIsPersonalSettings(true); setMemberFormRole(currentUser.role); setAvatarBase64(''); setIsMemberModalOpen(true); }} className="text-xs text-indigo-400 hover:underline">
+              <button onClick={() => { setEditingMemberData(currentUser); setIsPersonalSettings(true); setMemberFormRole(currentUser.role); setMemberFormDept(currentUser.dept || 'director'); setAvatarBase64(''); setIsMemberModalOpen(true); }} className="text-xs text-indigo-400 hover:underline">
                 ⚙️ 個人設定
               </button>
               <button onClick={handleLogout} className="flex items-center space-x-1 bg-slate-900 hover:bg-rose-900/40 text-slate-300 hover:text-rose-300 border border-slate-700 px-3 py-1.5 rounded-xl text-xs font-medium transition">
@@ -2093,7 +2096,7 @@
                     </div>
                   </div>
                   {isHighPrivilege(currentUser.role) && (
-                    <button onClick={() => { setEditingMemberData(null); setMemberFormRole('member'); setAvatarBase64(''); setIsPersonalSettings(false); setIsMemberModalOpen(true); }} className="bg-indigo-600 hover:bg-indigo-500 text-white text-xs px-3.5 py-2 rounded-xl font-bold flex items-center justify-center gap-1.5 transition">
+                    <button onClick={() => { setEditingMemberData(null); setMemberFormRole('member'); setMemberFormDept('director'); setAvatarBase64(''); setIsPersonalSettings(false); setIsMemberModalOpen(true); }} className="bg-indigo-600 hover:bg-indigo-500 text-white text-xs px-3.5 py-2 rounded-xl font-bold flex items-center justify-center gap-1.5 transition">
                       <i data-lucide="user-plus" className="w-4 h-4"></i><span>團隊成員</span>
                     </button>
                   )}
@@ -2123,7 +2126,7 @@
                       </div>
                       {isHighPrivilege(currentUser.role) && (
                         <div className="flex gap-2 pt-1">
-                          <button onClick={() => { setEditingMemberData(m); setIsPersonalSettings(false); setMemberFormRole(m.role); setAvatarBase64(''); setIsMemberModalOpen(true); }} className="flex-1 bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs py-2 rounded-xl">編輯</button>
+                          <button onClick={() => { setEditingMemberData(m); setIsPersonalSettings(false); setMemberFormRole(m.role); setMemberFormDept(m.dept || 'director'); setAvatarBase64(''); setIsMemberModalOpen(true); }} className="flex-1 bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs py-2 rounded-xl">編輯</button>
                           {m.id !== currentUser.id && <button onClick={() => handleDeleteMember(m.id, m.name)} className="bg-rose-900/40 hover:bg-rose-900 text-rose-300 text-xs px-3 py-2 rounded-xl border border-rose-500/30">刪除</button>}
                         </div>
                       )}
@@ -2141,7 +2144,7 @@
                   <div>
                     <h2 className="text-lg font-bold text-white">成員與權限管理（最高權限專區）</h2>
                   </div>
-                  <button onClick={() => { setEditingMemberData(null); setMemberFormRole('member'); setAvatarBase64(''); setIsPersonalSettings(false); setIsMemberModalOpen(true); }} className="bg-indigo-600 text-white text-xs px-3 py-2 rounded-xl font-medium flex items-center justify-center space-x-1">
+                  <button onClick={() => { setEditingMemberData(null); setMemberFormRole('member'); setMemberFormDept('director'); setAvatarBase64(''); setIsPersonalSettings(false); setIsMemberModalOpen(true); }} className="bg-indigo-600 text-white text-xs px-3 py-2 rounded-xl font-medium flex items-center justify-center space-x-1">
                     <i data-lucide="user-plus" className="w-4 h-4"></i>
                     <span>+ 新增成員</span>
                   </button>
@@ -2207,7 +2210,7 @@
                           <option value="admin">總召</option>
                         </select>
 
-                        <button onClick={() => { setEditingMemberData(m); setIsPersonalSettings(false); setMemberFormRole(m.role); setAvatarBase64(''); setIsMemberModalOpen(true); }} className="bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs px-2.5 py-1.5 rounded-lg">編輯</button>
+                        <button onClick={() => { setEditingMemberData(m); setIsPersonalSettings(false); setMemberFormRole(m.role); setMemberFormDept(m.dept || 'director'); setAvatarBase64(''); setIsMemberModalOpen(true); }} className="bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs px-2.5 py-1.5 rounded-lg">編輯</button>
                         {m.id !== currentUser.id && (
                           <button onClick={() => handleDeleteMember(m.id, m.name)} className="bg-rose-900/40 hover:bg-rose-900 text-rose-300 text-xs px-2.5 py-1.5 rounded-lg border border-rose-500/30">刪除</button>
                         )}
@@ -2311,18 +2314,18 @@
                       const assignedIds = Array.isArray(assignments[role.key]) ? assignments[role.key] : [];
                       // 老師不屬於任何班表崗位；實習生只出現在「實習生」崗位。
                       // 總召仍可被指派，因此保留 admin；老師雖同為最高權限，不能被選入班表。
-                      const deptMembers = role.key === 'intern'
-                        ? members.filter(m => m.role === 'intern')
-                        : (role.key === 'cam1' || role.key === 'cam2')
-                          ? members.filter(m => m.role !== 'teacher' && m.role !== 'intern' && (m.dept === 'cam1' || m.dept === 'cam2' || m.dept === 'camera'))
-                          : members.filter(m => m.role !== 'teacher' && m.role !== 'intern' && (m.dept === role.deptKey || m.role === 'admin'));
+                      // 班表分組完全依「所屬組別（dept）」決定，不看系統權限 role。
+                      // 例如：所屬組別=司儀組、系統權限=實習生的人，仍然要出現在司儀組。
+                      // 老師不屬於任何班表崗位；總召不會因為 role=admin 自動出現在任何一般組別。
+                      const deptMembers = (role.key === 'cam1' || role.key === 'cam2')
+                        ? members.filter(m => m.role !== 'teacher' && (m.dept === 'cam1' || m.dept === 'cam2' || m.dept === 'camera'))
+                        : members.filter(m => m.role !== 'teacher' && m.dept === role.deptKey);
                       const selectedMembers = assignedIds.map(id => members.find(m => m.id === id)).filter(Boolean);
                       const isCrossOpen = crossSupportRole === role.key;
-                      const supportMembers = crossSupportDept === 'intern'
-                        ? members.filter(m => m.role === 'intern')
-                        : (crossSupportDept === 'cam1' || crossSupportDept === 'cam2')
-                          ? members.filter(m => m.role !== 'teacher' && m.role !== 'intern' && (m.dept === 'cam1' || m.dept === 'cam2' || m.dept === 'camera'))
-                          : members.filter(m => m.role !== 'teacher' && m.role !== 'intern' && (m.dept === crossSupportDept || (crossSupportDept === 'camera' && (m.dept === 'cam1' || m.dept === 'cam2' || m.dept === 'camera')) || m.role === 'admin'));
+                      // 跨組支援同樣依「所屬組別」找人；系統權限是實習生也不會影響分組。
+                      const supportMembers = (crossSupportDept === 'cam1' || crossSupportDept === 'cam2')
+                        ? members.filter(m => m.role !== 'teacher' && (m.dept === 'cam1' || m.dept === 'cam2' || m.dept === 'camera'))
+                        : members.filter(m => m.role !== 'teacher' && m.dept === crossSupportDept);
 
                       return <div key={role.key} className="bg-slate-900/80 p-3 rounded-xl border border-slate-700 space-y-2">
                         <div className="flex items-center justify-between text-xs font-bold text-slate-200">
@@ -2513,7 +2516,7 @@
                     <>
                       <div>
                         <label className="block text-slate-400 mb-1">所屬組別</label>
-                        <select name="dept" defaultValue={(['cam1','cam2','camera'].includes(editingMemberData?.dept) ? 'camera' : (editingMemberData?.dept || 'director'))} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2 text-white">
+                        <select name="dept" value={memberFormDept} onChange={e => { const nextDept = e.target.value; setMemberFormDept(nextDept); if (['intern', 'host'].includes(nextDept) && memberFormRole === 'admin') setMemberFormRole('member'); }} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2 text-white">
                           <option value="admin">總召</option>
                           <option value="director">導播組</option>
                           <option value="audio">音控組</option>
@@ -2552,7 +2555,7 @@
                         <option value="intern">實習生</option>
                         <option value="leader">組長</option>
                         <option value="teacher">老師</option>
-                        <option value="admin">總召</option>
+                        <option value="admin" disabled={['intern', 'host'].includes(memberFormDept)}>總召{['intern', 'host'].includes(memberFormDept) ? '（司儀組／實習生不可設定）' : ''}</option>
                       </select>
                     </div>
                   )}
