@@ -171,6 +171,7 @@
       { key: 'cam1', label: 'CAM1 攝影', deptKey: 'cam1', icon: 'camera' },
       { key: 'cam2', label: 'CAM2 攝影', deptKey: 'cam2', icon: 'video' },
       { key: 'slides', label: '簡報/字卡', deptKey: 'slides', icon: 'file-text' },
+      { key: 'host', label: '司儀', deptKey: 'host', icon: 'mic' },
       { key: 'intern', label: '實習生', deptKey: 'intern', icon: 'graduation-cap' }
     ];
 
@@ -188,12 +189,67 @@
     // 需求 1：完全不要有任何預設班表
     const INITIAL_SCHEDULES = [];
 
+    // 登入狀態：只保存登入成員 ID，不保存密碼；重新整理或關閉瀏覽器後可恢復登入。
+    // localStorage 為主要儲存，Cookie 作為備援，避免部分瀏覽器 / 隱私模式造成 localStorage 偶發失效。
+    const LOGIN_STORAGE_KEY = 'mingdao_mdmt_login_member_id';
+    const LOGIN_COOKIE_KEY = 'mingdao_mdmt_login_member_id';
+
+    const readSavedLoginId = () => {
+      try {
+        const localId = localStorage.getItem(LOGIN_STORAGE_KEY);
+        if (localId) return localId;
+      } catch (err) {}
+      try {
+        const match = document.cookie.split('; ').find(item => item.startsWith(`${LOGIN_COOKIE_KEY}=`));
+        if (match) return decodeURIComponent(match.split('=').slice(1).join('='));
+      } catch (err) {}
+      return '';
+    };
+
+    const saveLoginId = (memberId) => {
+      const value = String(memberId || '');
+      if (!value) return;
+      try { localStorage.setItem(LOGIN_STORAGE_KEY, value); } catch (err) {}
+      try {
+        document.cookie = `${LOGIN_COOKIE_KEY}=${encodeURIComponent(value)}; expires=Fri, 31 Dec 9999 23:59:59 GMT; path=/; SameSite=Lax`;
+      } catch (err) {}
+    };
+
+    const clearSavedLoginId = () => {
+      try { localStorage.removeItem(LOGIN_STORAGE_KEY); } catch (err) {}
+      try { document.cookie = `${LOGIN_COOKIE_KEY}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; SameSite=Lax`; } catch (err) {}
+    };
+
     const INITIAL_SOP = {
-      director: { title: '導播 操作說明與注意事項', items: ['07:20 前抵達導播室，開啟總電源與 OBS', '測試畫面切換'] },
-      audio: { title: '音控 操作說明與注意事項', items: ['07:25 開啟混音器與麥克風', '檢查電池電量'] },
-      cam1: { title: 'CAM1 操作說明與注意事項', items: ['設置於中央平台，調整水平儀'] },
-      cam2: { title: 'CAM2 操作說明與注意事項', items: ['設置側邊特寫角度'] },
-      slides: { title: '簡報 操作說明與注意事項', items: ['確認今日朝會 PPT 與名單'] }
+      director: { title: '導播 工作說明與注意事項', items: ['07:20 前抵達導播室，開啟總電源與 OBS', '測試畫面切換'] },
+      audio: { title: '音控 工作說明與注意事項', items: ['07:25 開啟混音器與麥克風', '檢查電池電量'] },
+      cam1: { title: 'CAM1 工作說明與注意事項', items: ['設置於中央平台，調整水平儀'] },
+      cam2: { title: 'CAM2 工作說明與注意事項', items: ['設置側邊特寫角度'] },
+      slides: { title: '簡報 工作說明與注意事項', items: ['確認今日朝會 PPT 與名單'] },
+      host: { title: '司儀 工作說明與注意事項', items: ['確認主持稿與流程', '提前確認麥克風與上台順序'] }
+      ,intern: { title: '實習生 工作說明與注意事項', items: ['找總召報到並了解當日實習工作', '跟著當日安排的實習組組長作業'] }
+    };
+
+    const normalizeSopContent = (content) => {
+      const source = (content && typeof content === 'object') ? content : {};
+      const normalized = {};
+      DUTY_ROLES.forEach(role => {
+        const value = source[role.key];
+        const fallbackItems = role.key === 'intern'
+          ? ['找總召報到並了解當日實習工作', '跟著當日安排的實習組組長作業']
+          : [];
+        const rawItems = Array.isArray(value?.items) ? value.items : fallbackItems;
+        normalized[role.key] = {
+          ...(value && typeof value === 'object' ? value : {}),
+          title: String(value?.title || `${role.label} 工作說明與注意事項`).replaceAll('操作說明與注意事項', '工作說明與注意事項'),
+          items: rawItems.map(item => String(item).replaceAll('操作說明與注意事項', '工作說明與注意事項'))
+        };
+      });
+      // 保留 Firebase 中其他自訂崗位資料。
+      Object.entries(source).forEach(([key, value]) => {
+        if (!(key in normalized)) normalized[key] = value;
+      });
+      return normalized;
     };
 
     function App() {
@@ -201,6 +257,7 @@
       const [authUser, setAuthUser] = useState(null);
 
       const [currentUser, setCurrentUser] = useState(null);
+      const [isRestoringLogin, setIsRestoringLogin] = useState(true);
       const [loginMemberId, setLoginMemberId] = useState('');
       const [loginMemberSearch, setLoginMemberSearch] = useState('');
       const [loginDeptFilter, setLoginDeptFilter] = useState('all');
@@ -248,6 +305,18 @@
       const [isSaving, setIsSaving] = useState(false);
       const [syncStatus, setSyncStatus] = useState('connecting');
       const [dialogState, setDialogState] = useState({ open: false, type: 'confirm', title: '', message: '', value: '', resolver: null });
+
+      // 登入恢復：等 Firebase 成員資料載入後再恢復登入，避免網路延遲時短暫顯示登入頁或被誤判成登出。
+      useEffect(() => {
+        const savedId = readSavedLoginId();
+        if (!savedId) {
+          setIsRestoringLogin(false);
+          return;
+        }
+        const localMember = INITIAL_MEMBERS.find(m => m.id === savedId);
+        if (localMember) setCurrentUser(localMember);
+        // members listener 取得雲端資料後會再以最新資料覆蓋 currentUser。
+      }, []);
 
       const requestConfirm = (message, title = '請確認操作') => new Promise(resolve => {
         setDialogState({ open: true, type: 'confirm', title, message, value: '', resolver: resolve });
@@ -363,11 +432,24 @@
             // 第一次建立資料庫時，把預設成員只初始化一次，之後所有裝置都讀同一份雲端資料。
             await Promise.all(INITIAL_MEMBERS.map(m => setDoc(doc(membersRef, m.id), m)));
             setMembers(INITIAL_MEMBERS);
+            const savedId = readSavedLoginId();
+            const restoredMember = savedId ? INITIAL_MEMBERS.find(m => m.id === savedId) || null : null;
+            setCurrentUser(restoredMember);
+            if (restoredMember) saveLoginId(restoredMember.id);
+            setIsRestoringLogin(false);
             return;
           }
           const list = snapshot.docs.map(d => d.data());
           setMembers(list);
-          setCurrentUser(prev => prev ? list.find(m => m.id === prev.id) || prev : null);
+          setCurrentUser(prev => {
+            const savedId = readSavedLoginId();
+            const targetId = prev?.id || savedId;
+            const nextUser = targetId ? (list.find(m => m.id === targetId) || null) : null;
+            // 只有使用者主動登出才清除登入記錄；不要因為 Firebase 首次同步延遲就把登入狀態清掉。
+            if (nextUser) saveLoginId(nextUser.id);
+            return nextUser;
+          });
+          setIsRestoringLogin(false);
         }, (err) => {
           console.error('Members listener error:', err);
           setSyncStatus('error');
@@ -380,10 +462,10 @@
           }
         }, (err) => {} ));
 
-        // 操作說明與注意事項 即時監聽
+        // 工作說明與注意事項 即時監聽
         unsubs.push(onSnapshot(doc(sopRef, 'main'), (snap) => {
           if (snap.exists() && snap.data().content) {
-            setSopData(snap.data().content);
+            setSopData(normalizeSopContent(snap.data().content));
           }
         }, (err) => {} ));
 
@@ -461,6 +543,7 @@
         const isCorrect = String(foundMember.password || '').toLowerCase() === password.toLowerCase();
         if (isCorrect) {
           setCurrentUser(foundMember);
+          saveLoginId(foundMember.id);
           setLoginPassword('');
           setLoginMemberId('');
           setLoginMemberSearch('');
@@ -472,7 +555,9 @@
       };
 
       const handleLogout = () => {
+        clearSavedLoginId();
         setCurrentUser(null);
+        setIsRestoringLogin(false);
         showToast('已安全登出');
       };
 
@@ -529,6 +614,7 @@
           cam1: '攝影組',
           cam2: '攝影組',
           slides: '簡報/字卡組',
+          host: '司儀組',
           intern: '實習生'
         }[dept] || ({ teacher: '處室', admin: '總召', intern: '實習生' }[role]) || dept || '');
       };
@@ -682,9 +768,9 @@
           }
         };
 
-        syncToCloud('sops', 'main', { content: updatedSop }, '操作說明與注意事項 同步失敗，請稍後重試');
+        syncToCloud('sops', 'main', { content: updatedSop }, '工作說明與注意事項 同步失敗，請稍後重試');
         setSopData(updatedSop);
-        showToast('操作說明與注意事項 已成功更新！');
+        showToast('工作說明與注意事項 已成功更新！');
         setEditingSopKey(null);
       };
 
@@ -716,7 +802,7 @@
             time: '07:30 - 08:20',
             preparationDate: '',
             preparationTime: '',
-            assignments: { director: [], audio: [], cam1: [], cam2: [], slides: [], intern: [] }
+            assignments: { director: [], audio: [], cam1: [], cam2: [], slides: [], host: [], intern: [] }
           });
         }
         setCrossSupportRole(null);
@@ -1239,6 +1325,7 @@
         { key: 'audio', label: '音控組' },
         { key: 'camera', label: '攝影組' },
         { key: 'slides', label: '簡報/字卡組' },
+        { key: 'host', label: '司儀組' },
         { key: 'intern', label: '實習生' },
         { key: 'office', label: '處室' }
       ];
@@ -1253,6 +1340,17 @@
           })
           .sort((a,b) => getDepartmentLabel(a).localeCompare(getDepartmentLabel(b), 'zh-Hant') || a.name.localeCompare(b.name, 'zh-Hant'));
       }, [members, loginMemberSearch, loginDeptFilter]);
+
+      if (isRestoringLogin) {
+        return (
+          <div className="min-h-screen app-shell flex items-center justify-center p-6">
+            <div className="glass-panel rounded-3xl px-6 py-5 text-center">
+              <div className="text-lg font-bold text-white">正在恢復登入狀態…</div>
+              <div className="text-sm text-slate-400 mt-1">請稍候，正在同步成員資料</div>
+            </div>
+          </div>
+        );
+      }
 
       if (!currentUser) {
         return (
@@ -1358,7 +1456,7 @@
                 {[
                   { id: 'dashboard', label: '總覽', icon: 'layout-dashboard' },
                   ...(canManageSchedules(currentUser.role) ? [{ id: 'schedules', label: '班表管理', icon: 'calendar-days' }] : []),
-                  { id: 'sop', label: '崗位操作說明與注意事項', icon: 'clipboard-list' },
+                  { id: 'sop', label: '崗位工作說明與注意事項', icon: 'clipboard-list' },
                   { id: 'repairs', label: '設備報修系統', icon: 'wrench', badge: repairs.filter(r => r.status === 'pending').length },
                   { id: 'swaps', label: '請假與換班審核', icon: 'arrow-left-right', badge: isHighPrivilege(currentUser.role) ? swaps.filter(s => s.status === 'pending').length : 0 },
                   { id: 'members', label: '團隊成員', icon: 'users-round' },
@@ -1572,7 +1670,7 @@
                       <i data-lucide="user-check" className="w-4 h-4 mr-1.5 text-indigo-400"></i>
                       【{currentUser.name}】個人近期負責工作
                     </h3>
-                    <button onClick={() => { setSelectedSwapDate(userScheduledDates[0]?.scheduleId || ''); setIsSwapModalOpen(true); }} className="bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs px-3 py-1.5 rounded-xl transition flex items-center space-x-1">
+                    <button onClick={() => { setSelectedSwapScheduleId(userScheduledDates[0]?.scheduleId || ''); setIsSwapModalOpen(true); }} className="bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs px-3 py-1.5 rounded-xl transition flex items-center space-x-1">
                       <i data-lucide="arrow-left-right" className="w-3.5 h-3.5"></i>
                       <span>申請請假 / 換班</span>
                     </button>
@@ -1632,7 +1730,7 @@
                           )}
                         </div>
 
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-2.5">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-7 gap-2.5">
                           {DUTY_ROLES.map(role => {
                             const assignedIds = (latestSchedule.assignments && latestSchedule.assignments[role.key]) || [];
                             const uniqueIds = [...new Set(assignedIds)];
@@ -1690,7 +1788,7 @@
                       <table className="w-full min-w-[900px] text-left">
                         <thead className="bg-slate-800/80">
                           <tr>
-                            {['日期','活動','導播','音控','CAM1','CAM2','簡報/字卡','實習生'].map(h => <th key={h} className="px-3 py-2.5 text-xs font-bold text-slate-300 whitespace-nowrap">{h}</th>)}
+                            {['日期','活動','導播','音控','CAM1','CAM2','簡報/字卡','司儀','實習生'].map(h => <th key={h} className="px-3 py-2.5 text-xs font-bold text-slate-300 whitespace-nowrap">{h}</th>)}
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-800">
@@ -1698,13 +1796,13 @@
                             <tr key={`month-${sch.id}`} className="hover:bg-slate-800/40">
                               <td className="px-3 py-2.5 text-xs font-mono text-indigo-300 whitespace-nowrap">{sch.date}</td>
                               <td className="px-3 py-2.5 text-xs font-semibold text-white min-w-[150px]">{sch.title || '未命名班表'}<div className="text-[10px] text-slate-500 mt-0.5">{sch.time || ''}</div></td>
-                              {['director','audio','cam1','cam2','slides','intern'].map(key => {
+                              {['director','audio','cam1','cam2','slides','host','intern'].map(key => {
                                 const ids = [...new Set((sch.assignments && sch.assignments[key]) || [])];
                                 return <td key={key} className="px-3 py-2.5 align-top"><div className="flex flex-wrap gap-1 min-w-[90px]">{ids.map(id => { const m = members.find(x => x.id === id); return m ? <span key={id} className="text-xs bg-slate-700/80 text-slate-200 px-2 py-1 rounded-md whitespace-nowrap">{m.name}</span> : null; })}{ids.length === 0 && <span className="text-xs text-slate-600">—</span>}</div></td>;
                               })}
                             </tr>
                           ))}
-                          {sortedSchedules.length === 0 && <tr><td colSpan="8" className="px-4 py-8 text-center text-xs text-slate-500">目前尚無班表</td></tr>}
+                          {sortedSchedules.length === 0 && <tr><td colSpan="9" className="px-4 py-8 text-center text-xs text-slate-500">目前尚無班表</td></tr>}
                         </tbody>
                       </table>
                     </div>
@@ -1726,7 +1824,7 @@
                                 <button onClick={() => handleOpenScheduleModal(sch)} className="self-end sm:self-auto text-[11px] text-indigo-400 hover:underline">編輯人員</button>
                               )}
                             </div>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-2">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-7 gap-2">
                               {DUTY_ROLES.map(role => {
                                 const assignedIds = (sch.assignments && sch.assignments[role.key]) || [];
                                 const uniqueIds = [...new Set(assignedIds)];
@@ -1817,7 +1915,7 @@
             {activeTab === 'sop' && (
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <h2 className="text-lg font-bold text-white">崗位操作說明與注意事項</h2>
+                  <h2 className="text-lg font-bold text-white">崗位工作說明與注意事項</h2>
                   {(isHighPrivilege(currentUser.role) || currentUser.role === 'leader') && (
                     <span className="text-xs text-amber-400">✨ 您擁有組長編輯權限</span>
                   )}
@@ -1825,7 +1923,10 @@
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {DUTY_ROLES.map(role => {
-                    const sopObj = sopData[role.key] || { title: role.label + ' 操作說明與注意事項', items: [] };
+                    const sopObj = sopData[role.key] || {
+                      title: role.key === 'intern' ? '實習生 工作說明與注意事項' : role.label + ' 工作說明與注意事項',
+                      items: role.key === 'intern' ? ['找總召報到並了解當日實習工作', '跟著當日安排的實習組組長作業'] : []
+                    };
                     const isEditing = editingSopKey === role.key;
 
                     return (
@@ -1845,7 +1946,7 @@
                                 }}
                                 className="text-xs bg-slate-700 hover:bg-slate-600 text-slate-300 px-2.5 py-1 rounded-lg transition"
                               >
-                                編輯操作說明
+                                編輯工作說明
                               </button>
                             )}
                           </div>
@@ -1922,7 +2023,7 @@
                     <h2 className="text-lg font-bold text-white">請假與換班審核中心</h2>
                     <p className="text-xs text-slate-400">審核並查看歷史紀錄</p>
                   </div>
-                  <button onClick={() => { setSelectedSwapDate(userScheduledDates[0]?.scheduleId || ''); setIsSwapModalOpen(true); }} className="bg-indigo-600 text-white text-xs px-3 py-2 rounded-xl font-medium">+ 提出申請</button>
+                  <button onClick={() => { setSelectedSwapScheduleId(userScheduledDates[0]?.scheduleId || ''); setIsSwapModalOpen(true); }} className="bg-indigo-600 text-white text-xs px-3 py-2 rounded-xl font-medium">+ 提出申請</button>
                 </div>
 
                 <div className="space-y-3">
@@ -2221,7 +2322,7 @@
                           <button type="button" onClick={() => {
                             setCrossSupportRole(isCrossOpen ? null : role.key);
                             if (!isCrossOpen) {
-                              const firstGroup = ['director','audio','camera','slides','intern'].find(g => !(role.key === 'intern' && g === 'intern') && g !== role.deptKey) || 'audio';
+                              const firstGroup = ['director','audio','camera','slides','host','intern'].find(g => !(role.key === 'intern' && g === 'intern') && g !== role.deptKey) || 'audio';
                               setCrossSupportDept(firstGroup);
                             }
                           }} className="text-[11px] text-indigo-400 underline whitespace-nowrap">
@@ -2256,6 +2357,7 @@
                               { key: 'audio', label: '音控組', value: 'audio' },
                               { key: 'camera', label: '攝影組', value: 'camera' },
                               { key: 'slides', label: '簡報/字卡組', value: 'slides' },
+                              { key: 'host', label: '司儀組', value: 'host' },
                               { key: 'intern', label: '實習生', value: 'intern' }
                             ].filter(g => !(role.key === 'intern' && g.value === 'intern')).map(g => <option key={g.key} value={g.value}>{g.label}</option>)}
                           </select>
@@ -2352,7 +2454,7 @@
                   </div>
                   <div className="flex justify-end space-x-2 pt-2 border-t border-slate-700">
                     <button type="button" onClick={() => setIsSwapModalOpen(false)} className="px-3 py-1.5 bg-slate-700 text-slate-300 rounded-xl">取消</button>
-                    <button type="submit" disabled={isSaving || userScheduledDates.length === 0 || !getWorkRoleForDate(effectiveSwapDate)} className="px-3 py-1.5 bg-indigo-600 text-white rounded-xl font-bold disabled:opacity-50 disabled:cursor-not-allowed">{isSaving ? '送出中…' : '送出申請'}</button>
+                    <button type="submit" disabled={isSaving || userScheduledDates.length === 0 || !getWorkRoleForDate(effectiveSwapScheduleId)} className="px-3 py-1.5 bg-indigo-600 text-white rounded-xl font-bold disabled:opacity-50 disabled:cursor-not-allowed">{isSaving ? '送出中…' : '送出申請'}</button>
                   </div>
                 </form>
               </div>
@@ -2409,6 +2511,7 @@
                           <option value="audio">音控組</option>
                           <option value="camera">攝影組</option>
                           <option value="slides">簡報組</option>
+                          <option value="host">司儀組</option>
                           <option value="intern">實習生</option>
                         </select>
                       </div>
