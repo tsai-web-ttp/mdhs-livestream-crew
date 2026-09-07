@@ -21,6 +21,7 @@
     import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js';
     import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js';
     import { getFirestore, collection, doc, setDoc, deleteDoc, getDoc, onSnapshot } from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js';
+    import { getStorage, ref as storageRef, uploadBytes, getDownloadURL, deleteObject } from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-storage.js';
 
     window.FirebaseSDK = {
       initializeApp,
@@ -29,6 +30,11 @@
       signInAnonymously,
       onAuthStateChanged,
       getFirestore,
+      getStorage,
+      storageRef,
+      uploadBytes,
+      getDownloadURL,
+      deleteObject,
       collection,
       doc,
       setDoc,
@@ -152,18 +158,6 @@
 
     const hasEmailConfig = !!(window.emailjs && EMAIL_CONFIG.publicKey && !EMAIL_CONFIG.publicKey.includes('請填入'));
 
-    const INITIAL_MEMBERS = [
-      { id: 'm1', name: '蔡孜鵬', password: '31V714', role: 'admin', title: '總召', dept: 'admin', avatar: '', email: '' },
-      { id: 'm2', name: '洪睿頤', password: '31S441', role: 'leader', title: '導播組長', dept: 'director', avatar: '', email: '' },
-      { id: 'm3', name: '蕭宥華', password: '31S442', role: 'leader', title: 'CAM2 組長', dept: 'camera', avatar: '', email: '' },
-      { id: 'm4', name: '陳盈融', password: '31S276', role: 'leader', title: '音控組長', dept: 'audio', avatar: '', email: '' },
-      { id: 'm10', name: '柯昱丞', password: '31S136', role: 'member', title: '導播組員', dept: 'director', avatar: '', email: '' },
-      { id: 'm5', name: '楊奕璿', password: '41S285', role: 'member', title: '導播組員', dept: 'director', avatar: '', email: '' },
-      { id: 'm6', name: '陳姿聿', password: '31V621', role: 'member', title: '音控組員', dept: 'audio', avatar: '', email: '' },
-      { id: 'm7', name: '胡永璋', password: '41S465', role: 'member', title: '音控組員', dept: 'audio', avatar: '', email: '' },
-      { id: 'm9', name: '黃芃瑀', password: '31V583', role: 'member', title: 'CAM1 攝影', dept: 'camera', avatar: '', email: '' },
-      { id: 'm8', name: '戴士捷', password: '41V105', role: 'member', title: 'CAM2 攝影', dept: 'camera', avatar: '', email: '' }
-    ];
 
     const DUTY_ROLES = [
       { key: 'director', label: '導播', deptKey: 'director', icon: 'tv' },
@@ -193,6 +187,8 @@
     // localStorage 為主要儲存，Cookie 作為備援，避免部分瀏覽器 / 隱私模式造成 localStorage 偶發失效。
     const LOGIN_STORAGE_KEY = 'mingdao_mdmt_login_member_id';
     const LOGIN_COOKIE_KEY = 'mingdao_mdmt_login_member_id';
+    // 舊版本可能留下 __meta__ 文件，但它不是成員，永遠不會被顯示，也不再用來觸發初始化。
+    const MEMBERS_META_ID = '__meta__';
 
     const readSavedLoginId = () => {
       try {
@@ -220,25 +216,13 @@
       try { document.cookie = `${LOGIN_COOKIE_KEY}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; SameSite=Lax`; } catch (err) {}
     };
 
-    const INITIAL_SOP = {
-      director: { title: '導播 工作說明與注意事項', items: ['07:20 前抵達導播室，開啟總電源與 OBS', '測試畫面切換'] },
-      audio: { title: '音控 工作說明與注意事項', items: ['07:25 開啟混音器與麥克風', '檢查電池電量'] },
-      cam1: { title: 'CAM1 工作說明與注意事項', items: ['設置於中央平台，調整水平儀'] },
-      cam2: { title: 'CAM2 工作說明與注意事項', items: ['設置側邊特寫角度'] },
-      slides: { title: '簡報 工作說明與注意事項', items: ['確認今日朝會 PPT 與名單'] },
-      host: { title: '司儀 工作說明與注意事項', items: ['確認主持稿與流程', '提前確認麥克風與上台順序'] }
-      ,intern: { title: '實習生 工作說明與注意事項', items: ['找總召報到並了解當日實習工作', '跟著當日安排的實習組組長作業'] }
-    };
-
     const normalizeSopContent = (content) => {
       const source = (content && typeof content === 'object') ? content : {};
       const normalized = {};
       DUTY_ROLES.forEach(role => {
         const value = source[role.key];
-        const fallbackItems = role.key === 'intern'
-          ? ['找總召報到並了解當日實習工作', '跟著當日安排的實習組組長作業']
-          : [];
-        const rawItems = Array.isArray(value?.items) ? value.items : fallbackItems;
+        // 可編輯內容以 Firebase 為唯一來源；Firebase 沒有該崗位資料時只建立空白結構，絕不回退到舊版程式碼內容。
+        const rawItems = Array.isArray(value?.items) ? value.items : [];
         normalized[role.key] = {
           ...(value && typeof value === 'object' ? value : {}),
           title: String(value?.title || `${role.label} 工作說明與注意事項`).replaceAll('操作說明與注意事項', '工作說明與注意事項'),
@@ -254,6 +238,7 @@
 
     function App() {
       const [db, setDb] = useState(null);
+      const [storage, setStorage] = useState(null);
       const [authUser, setAuthUser] = useState(null);
 
       const [currentUser, setCurrentUser] = useState(null);
@@ -264,13 +249,15 @@
       const [loginPassword, setLoginPassword] = useState('');
       const [loginError, setLoginError] = useState('');
 
-      const [members, setMembers] = useState(INITIAL_MEMBERS);
+      const [members, setMembers] = useState([]);
       const [schedules, setSchedules] = useState(INITIAL_SCHEDULES);
       const [repairs, setRepairs] = useState([]);
       const [swaps, setSwaps] = useState([]);
-      const [announcement, setAnnouncement] = useState('📢 請全體成員於朝會前 10 分鐘完成所有設備校正！');
+      const [announcement, setAnnouncement] = useState('');
       const [leaderSuggestions, setLeaderSuggestions] = useState([]); 
-      const [sopData, setSopData] = useState(INITIAL_SOP);
+      // 實習生評價只由總召載入與管理，資料持久化於 Firebase internReviews 集合。
+      const [internReviews, setInternReviews] = useState([]);
+      const [sopData, setSopData] = useState(() => normalizeSopContent({}));
 
       const [activeTab, setActiveTab] = useState('dashboard');
       const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -307,16 +294,11 @@
       const [syncStatus, setSyncStatus] = useState('connecting');
       const [dialogState, setDialogState] = useState({ open: false, type: 'confirm', title: '', message: '', value: '', resolver: null });
 
-      // 登入恢復：等 Firebase 成員資料載入後再恢復登入，避免網路延遲時短暫顯示登入頁或被誤判成登出。
+      // 登入恢復：只接受 Firebase 成員資料作為最終真實來源。
+      // 不再用程式內建的 INITIAL_MEMBERS 恢復登入，避免已刪除的舊帳號重新出現。
       useEffect(() => {
         const savedId = readSavedLoginId();
-        if (!savedId) {
-          setIsRestoringLogin(false);
-          return;
-        }
-        const localMember = INITIAL_MEMBERS.find(m => m.id === savedId);
-        if (localMember) setCurrentUser(localMember);
-        // members listener 取得雲端資料後會再以最新資料覆蓋 currentUser。
+        if (!savedId) setIsRestoringLogin(false);
       }, []);
 
       const requestConfirm = (message, title = '請確認操作') => new Promise(resolve => {
@@ -359,14 +341,16 @@
           setSyncStatus('offline');
           return;
         }
-        const { initializeApp, getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged, getFirestore } = window.FirebaseSDK;
+        const { initializeApp, getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged, getFirestore, getStorage } = window.FirebaseSDK;
         let unsubscribe = () => {};
         let cancelled = false;
         try {
           const app = initializeApp(firebaseConfig);
           const auth = getAuth(app);
           const firestore = getFirestore(app);
+          const cloudStorage = getStorage(app);
           setDb(firestore);
+          setStorage(cloudStorage);
           setSyncStatus('authenticating');
 
           const initAuth = async () => {
@@ -397,6 +381,7 @@
         return () => { cancelled = true; unsubscribe(); };
       }, []);
 
+      // 成員、班表等雲端資料一律以 Firebase 回傳內容為準，不自動回寫舊預設資料。
       // 需求 3：支援跨裝置即時同步 (onSnapshot)
       useEffect(() => {
         if (!db || !authUser) return;
@@ -409,12 +394,15 @@
         const swapsRef = collection(db, 'artifacts', appId, 'public', 'data', 'swaps');
         const membersRef = collection(db, 'artifacts', appId, 'public', 'data', 'members');
         const sopRef = collection(db, 'artifacts', appId, 'public', 'data', 'sops');
+        const internReviewsRef = collection(db, 'artifacts', appId, 'public', 'data', 'internReviews');
 
         const unsubs = [];
 
         // 班表即時監聽（不強制寫入預設班表）
         unsubs.push(onSnapshot(schedulesRef, (snapshot) => {
-          const list = snapshot.docs.map(d => ({ ...d.data(), id: d.data().id || d.id }));
+          const list = snapshot.docs
+            .filter(d => d.id !== MEMBERS_META_ID)
+            .map(d => ({ ...d.data(), id: d.data().id || d.id }));
           list.sort((a, b) => {
             const aa = new Date(`${a.date || ''}T${(a.time || '00:00').split(' - ')[0] || '00:00'}`).getTime();
             const bb = new Date(`${b.date || ''}T${(b.time || '00:00').split(' - ')[0] || '00:00'}`).getTime();
@@ -427,30 +415,21 @@
           setSyncStatus('error');
         }));
 
-        // 成員即時監聽
-        unsubs.push(onSnapshot(membersRef, async (snapshot) => {
-          if (snapshot.empty) {
-            // 第一次建立資料庫時，把預設成員只初始化一次，之後所有裝置都讀同一份雲端資料。
-            await Promise.all(INITIAL_MEMBERS.map(m => setDoc(doc(membersRef, m.id), m)));
-            setMembers(INITIAL_MEMBERS);
-            const savedId = readSavedLoginId();
-            const restoredMember = savedId ? INITIAL_MEMBERS.find(m => m.id === savedId) || null : null;
-            setCurrentUser(restoredMember);
-            if (restoredMember) saveLoginId(restoredMember.id);
-            setIsRestoringLogin(false);
-            return;
-          }
-          const list = snapshot.docs.map(d => d.data());
+        // 成員即時監聽：Firebase 是唯一真實來源。
+        // 絕對不因為集合暫時為空、自動重新初始化或把 INITIAL_MEMBERS 灌回去。
+        unsubs.push(onSnapshot(membersRef, (snapshot) => {
+          const list = snapshot.docs.map(d => ({ ...d.data(), id: d.data().id || d.id }));
           setMembers(list);
           setCurrentUser(prev => {
             const savedId = readSavedLoginId();
             const targetId = prev?.id || savedId;
             const nextUser = targetId ? (list.find(m => m.id === targetId) || null) : null;
-            // 只有使用者主動登出才清除登入記錄；不要因為 Firebase 首次同步延遲就把登入狀態清掉。
+            // 成員資料只以 Firebase 為準；找到對應帳號才保留登入。
             if (nextUser) saveLoginId(nextUser.id);
             return nextUser;
           });
           setIsRestoringLogin(false);
+          setSyncStatus('online');
         }, (err) => {
           console.error('Members listener error:', err);
           setSyncStatus('error');
@@ -458,17 +437,15 @@
 
         // 公告即時監聽
         unsubs.push(onSnapshot(doc(annRef, 'main'), (snap) => {
-          if (snap.exists() && snap.data().text) {
-            setAnnouncement(snap.data().text);
-          }
-        }, (err) => {} ));
+          // Firebase 沒有公告文件時保持空白，不再顯示程式碼內的舊公告。
+          setAnnouncement(snap.exists() ? String(snap.data()?.text || '') : '');
+        }, (err) => { console.error('Announcement listener error:', err); } ));
 
         // 工作說明與注意事項 即時監聽
         unsubs.push(onSnapshot(doc(sopRef, 'main'), (snap) => {
-          if (snap.exists() && snap.data().content) {
-            setSopData(normalizeSopContent(snap.data().content));
-          }
-        }, (err) => {} ));
+          // 工作說明內容完全以 Firebase 為準；文件不存在時只顯示空白結構，不回填舊版內容。
+          setSopData(snap.exists() ? normalizeSopContent(snap.data()?.content) : normalizeSopContent({}));
+        }, (err) => { console.error('SOP listener error:', err); } ));
 
         // 建議即時監聽
         unsubs.push(onSnapshot(suggestionsRef, (snapshot) => {
@@ -481,6 +458,17 @@
         unsubs.push(onSnapshot(repairsRef, (snapshot) => {
           setRepairs(snapshot.docs.map(d => d.data()));
         }, (err) => {} ));
+
+        // 實習生評價即時監聽：只有總召才載入，其他角色完全不顯示。
+        if (currentUser?.role === 'admin') {
+          unsubs.push(onSnapshot(internReviewsRef, (snapshot) => {
+            const list = snapshot.docs.map(d => ({ ...d.data(), id: d.data().id || d.id }));
+            list.sort((a, b) => (b.updatedAt || b.createdAt || 0) - (a.updatedAt || a.createdAt || 0));
+            setInternReviews(list);
+          }, (err) => console.error('Intern reviews listener error:', err)));
+        } else {
+          setInternReviews([]);
+        }
 
         // 換班即時監聽：以 Firebase 文件 ID 補回舊資料，並防止同一筆待審申請重複顯示。
         unsubs.push(onSnapshot(swapsRef, (snapshot) => {
@@ -505,7 +493,7 @@
         }));
 
         return () => unsubs.forEach(unsub => unsub());
-      }, [db, authUser]);
+      }, [db, authUser, currentUser?.role]);
 
       useEffect(() => {
         if (window.lucide) {
@@ -563,18 +551,50 @@
       };
 
       const handleImageUpload = (e) => {
-        const file = e.target.files[0];
-        if (file) {
-          const reader = new FileReader();
-          reader.onloadend = () => {
-            setAvatarBase64(reader.result);
-          };
-          reader.readAsDataURL(file);
+        const file = e.target.files?.[0];
+        if (!file) return;
+        if (!file.type.startsWith('image/')) {
+          showToast('請選擇圖片檔案。', 'error');
+          return;
         }
+        const reader = new FileReader();
+        reader.onload = () => {
+          const img = new Image();
+          img.onload = () => {
+            const maxSize = 512;
+            const scale = Math.min(1, maxSize / Math.max(img.width, img.height));
+            const canvas = document.createElement('canvas');
+            canvas.width = Math.max(1, Math.round(img.width * scale));
+            canvas.height = Math.max(1, Math.round(img.height * scale));
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            setAvatarBase64(canvas.toDataURL('image/webp', 0.82));
+          };
+          img.onerror = () => showToast('頭貼圖片讀取失敗，請換一張圖片。', 'error');
+          img.src = reader.result;
+        };
+        reader.onerror = () => showToast('頭貼圖片讀取失敗，請重試。', 'error');
+        reader.readAsDataURL(file);
       };
 
-      // 快速同步：UI 不再等待 Firebase 網路回應才關閉視窗。
-      // 本地畫面先更新，雲端寫入在背景完成；失敗時再通知使用者。
+      const uploadAvatarToStorage = async (dataUrl, memberId, oldStoragePath = '') => {
+        if (!dataUrl || !String(dataUrl).startsWith('data:')) return { url: dataUrl || '', path: oldStoragePath || '' };
+        if (!storage || !authUser) throw new Error('Firebase Storage 尚未連線');
+        const { storageRef, uploadBytes, getDownloadURL, deleteObject } = window.FirebaseSDK;
+        const response = await fetch(dataUrl);
+        const blob = await response.blob();
+        const path = `avatars/${memberId}/${Date.now()}.webp`;
+        const targetRef = storageRef(storage, path);
+        await uploadBytes(targetRef, blob, { contentType: 'image/webp', cacheControl: 'public,max-age=31536000,immutable' });
+        const url = await getDownloadURL(targetRef);
+        if (oldStoragePath && oldStoragePath !== path) {
+          try { await deleteObject(storageRef(storage, oldStoragePath)); } catch (err) { console.warn('舊頭貼刪除略過:', err); }
+        }
+        return { url, path };
+      };
+
+      // 所有可持久化資料先確認 Firebase 寫入成功，再更新本地畫面。
+      // Firestore 的 setDoc Promise 會在遠端後端確認寫入後才完成，避免本地假成功。
       const syncToCloud = (collectionName, id, data, errorMessage) => {
         if (!db || !authUser) return Promise.reject(new Error('尚未連線到雲端'));
         const { doc, setDoc } = window.FirebaseSDK;
@@ -769,10 +789,17 @@
           }
         };
 
-        syncToCloud('sops', 'main', { content: updatedSop }, '工作說明與注意事項 同步失敗，請稍後重試');
-        setSopData(updatedSop);
-        showToast('工作說明與注意事項 已成功更新！');
-        setEditingSopKey(null);
+        setIsSaving(true);
+        try {
+          await syncToCloud('sops', 'main', { content: updatedSop }, '工作說明與注意事項 同步失敗，資料尚未更新');
+          setSopData(updatedSop);
+          showToast('工作說明與注意事項 已成功更新！');
+          setEditingSopKey(null);
+        } catch (err) {
+          // Firebase 寫入失敗時不更新本地狀態，避免看起來已儲存。
+        } finally {
+          setIsSaving(false);
+        }
       };
 
       const handleOpenScheduleModal = (sch = null) => {
@@ -965,9 +992,16 @@
       const handleUpdateAnnouncement = async () => {
         const newAnn = await requestPrompt('請編輯要顯示給全體成員的主要公告：', announcement, '編輯主要公告');
         if (newAnn !== null) {
-          syncToCloud('announcements', 'main', { text: newAnn }, '公告同步失敗，請稍後重試');
-          setAnnouncement(newAnn);
-          showToast('公告已廣播！');
+          setIsSaving(true);
+          try {
+            await syncToCloud('announcements', 'main', { text: newAnn }, '公告同步失敗，資料尚未更新');
+            setAnnouncement(newAnn);
+            showToast('公告已廣播！');
+          } catch (err) {
+            // Firebase 寫入失敗時保留原公告，不讓畫面假裝已儲存。
+          } finally {
+            setIsSaving(false);
+          }
         }
       };
 
@@ -1109,6 +1143,23 @@
         }
       };
 
+      const handleWithdrawSwap = async (swapId) => {
+        const targetSwap = swaps.find(s => s.id === swapId);
+        if (!targetSwap || targetSwap.status !== 'pending') return;
+        const isMine = targetSwap.requesterId === currentUser?.id || (!targetSwap.requesterId && targetSwap.requester === currentUser?.name);
+        if (!isMine) {
+          showToast('只能收回自己提出、尚未審核的申請。', 'error');
+          return;
+        }
+        if (!(await requestConfirm('確定要收回這筆尚未審核的請假／換班申請嗎？', '收回申請'))) return;
+        const updated = { ...targetSwap, status: 'withdrawn', withdrawnAt: Date.now(), withdrawnBy: currentUser.id, withdrawnByName: currentUser.name };
+        try {
+          await syncToCloud('swaps', swapId, updated, '收回申請同步失敗，申請仍未收回');
+          setSwaps(prev => prev.map(s => s.id === swapId ? updated : s));
+          showToast('已成功收回申請。');
+        } catch (err) {}
+      };
+
       const handleUpdateSwapStatus = async (swapId, newStatus) => {
         const targetSwap = swaps.find(s => s.id === swapId);
         if (!targetSwap || !isHighPrivilege(currentUser?.role)) return;
@@ -1167,6 +1218,44 @@
         } catch (err) {}
       };
 
+      const handleSaveInternReview = async (intern, reviewText) => {
+        if (currentUser?.role !== 'admin') {
+          showToast('只有總召可以查看與編輯實習生評價。', 'error');
+          return;
+        }
+        const text = String(reviewText || '').trim();
+        if (!text) {
+          showToast('請先輸入實習生評價內容。', 'error');
+          return;
+        }
+        const existing = internReviews.find(r => r.internId === intern.id);
+        const review = {
+          id: existing?.id || `intern-review-${intern.id}`,
+          internId: intern.id,
+          internName: intern.name,
+          reviewerId: currentUser.id,
+          reviewerName: currentUser.name,
+          content: text,
+          createdAt: existing?.createdAt || Date.now(),
+          updatedAt: Date.now()
+        };
+        try {
+          await syncToCloud('internReviews', review.id, review, '實習生評價同步失敗，資料尚未更新');
+          setInternReviews(prev => prev.some(r => r.id === review.id) ? prev.map(r => r.id === review.id ? review : r) : [review, ...prev]);
+          showToast(`已儲存 ${intern.name} 的實習生評價。`);
+        } catch (err) {}
+      };
+
+      const handleDeleteInternReview = async (reviewId) => {
+        if (currentUser?.role !== 'admin') return;
+        if (!(await requestConfirm('確定要刪除這筆實習生評價嗎？', '刪除實習生評價'))) return;
+        try {
+          await deleteFromCloud('internReviews', reviewId, '實習生評價刪除失敗');
+          setInternReviews(prev => prev.filter(r => r.id !== reviewId));
+          showToast('實習生評價已刪除。');
+        } catch (err) {}
+      };
+
       const handleReportRepair = async (e) => {
         e.preventDefault();
         const formData = new FormData(e.target);
@@ -1178,10 +1267,17 @@
           issue: formData.get('issue'),
           status: 'pending'
         };
-        syncToCloud('repairs', newRepair.id, newRepair, '報修同步失敗，請稍後重試');
-        setRepairs(prev => [newRepair, ...prev]);
-        showToast('報修單已提交！');
-        setIsRepairModalOpen(false);
+        setIsSaving(true);
+        try {
+          await syncToCloud('repairs', newRepair.id, newRepair, '報修同步失敗，資料尚未送出');
+          setRepairs(prev => [newRepair, ...prev]);
+          showToast('報修單已提交！');
+          setIsRepairModalOpen(false);
+        } catch (err) {
+          // Firebase 寫入失敗時保留表單，讓使用者可以重試。
+        } finally {
+          setIsSaving(false);
+        }
       };
 
       const handleUpdateRepairStatus = async (repairId) => {
@@ -1201,7 +1297,8 @@
       const handleSaveMemberSubmit = async (e) => {
         e.preventDefault();
         const formData = new FormData(e.target);
-        const finalAvatar = avatarBase64 || (editingMemberData ? editingMemberData.avatar : '');
+        let finalAvatar = avatarBase64 || (editingMemberData ? editingMemberData.avatar : '');
+        let finalAvatarStoragePath = editingMemberData?.avatarStoragePath || currentUser?.avatarStoragePath || '';
 
         let memberObj;
         if (isPersonalSettings) {
@@ -1209,7 +1306,8 @@
             ...currentUser,
             name: formData.get('name'),
             password: formData.get('password'),
-            avatar: finalAvatar
+            avatar: finalAvatar,
+            avatarStoragePath: finalAvatarStoragePath
           };
         } else {
           memberObj = {
@@ -1221,7 +1319,8 @@
             dept: formData.get('role') === 'teacher' ? (formData.get('dept') || 'office') : (formData.get('dept') === 'camera' ? 'camera' : formData.get('dept')),
             className: formData.get('className') || (editingMemberData ? editingMemberData.className || '' : ''),
             email: formData.get('email') || (editingMemberData ? editingMemberData.email || '' : ''),
-            avatar: finalAvatar
+            avatar: finalAvatar,
+            avatarStoragePath: finalAvatarStoragePath
           };
         }
 
@@ -1231,6 +1330,19 @@
           return;
         }
 
+        // 新頭貼先上傳 Firebase Storage，再把下載網址寫進 Firestore。
+        // 舊版若仍使用 base64，也會在這次儲存時自動遷移到 Storage。
+        if (String(memberObj.avatar || '').startsWith('data:')) {
+          try {
+            const uploaded = await uploadAvatarToStorage(memberObj.avatar, memberObj.id, memberObj.avatarStoragePath || '');
+            memberObj.avatar = uploaded.url;
+            memberObj.avatarStoragePath = uploaded.path;
+          } catch (err) {
+            showToast('頭貼上傳 Firebase Storage 失敗，資料尚未更新。', 'error');
+            return;
+          }
+        }
+
         const normalizedPassword = String(memberObj.password || '').trim().toLowerCase();
         const duplicatePassword = members.find(m => m.id !== memberObj.id && String(m.password || '').trim().toLowerCase() === normalizedPassword);
         if (duplicatePassword) {
@@ -1238,7 +1350,14 @@
           return;
         }
         memberObj.password = String(memberObj.password || '').trim();
-        syncToCloud('members', memberObj.id, memberObj, '成員資料同步失敗，請稍後重試');
+        setIsSaving(true);
+        try {
+          // 先確認 Firebase 寫入成功，再更新畫面，避免 onSnapshot 讀到舊資料後把新設定覆蓋回去。
+          await syncToCloud('members', memberObj.id, memberObj, '成員資料同步失敗，資料尚未更新');
+        } catch (err) {
+          setIsSaving(false);
+          return;
+        }
 
         setMembers(prev => {
           const exists = prev.some(m => m.id === memberObj.id);
@@ -1252,13 +1371,21 @@
         setEditingMemberData(null);
         setIsPersonalSettings(false);
         setAvatarBase64('');
+        setIsSaving(false);
       };
 
       const handleDeleteMember = async (memberId, memberName) => {
-        if (await requestConfirm(`確定要刪除成員【${memberName}】嗎？`, '刪除成員')) {
-          deleteFromCloud('members', memberId, '成員刪除同步失敗');
+        if (!(await requestConfirm(`確定要刪除成員【${memberName}】嗎？`, '刪除成員'))) return;
+        setIsSaving(true);
+        try {
+          // 必須等待 Firebase 真正完成刪除，再從畫面移除，避免舊快照又把成員補回來。
+          await deleteFromCloud('members', memberId, '成員刪除同步失敗，資料尚未刪除');
           setMembers(prev => prev.filter(m => m.id !== memberId));
           showToast(`已刪除：${memberName}`);
+        } catch (err) {
+          // deleteFromCloud 已顯示錯誤；保留原畫面資料，避免看起來像刪除成功。
+        } finally {
+          setIsSaving(false);
         }
       };
 
@@ -2060,7 +2187,12 @@
                           </button>
                         </div>
                       ) : (
-                        <div className="text-[10px] text-slate-400 pt-1 border-t border-slate-700">等待總召確認中...</div>
+                        <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-700">
+                          <div className="text-[10px] text-slate-400">等待總召確認中...</div>
+                          {(sw.requesterId === currentUser.id || (!sw.requesterId && sw.requester === currentUser.name)) && (
+                            <button type="button" onClick={() => handleWithdrawSwap(sw.id)} className="text-[11px] text-rose-300 bg-rose-500/10 border border-rose-500/30 px-2.5 py-1.5 rounded-lg hover:bg-rose-500/20 font-bold">收回申請</button>
+                          )}
+                        </div>
                       )}
                     </div>
                   ))}
@@ -2076,7 +2208,7 @@
                   if (!canViewHistory && myHistory.length === 0) return null;
                   return <div className="space-y-3 pt-4 border-t border-slate-700">
                     <div className="flex items-center justify-between"><div><h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">📋 歷史審核紀錄</h3><p className="text-[10px] text-slate-500 mt-1">{canViewHistory ? '老師 / 總召可查看全部請假/換班歷史' : '僅顯示你本人提出的歷史申請'}</p></div><span className="text-[10px] text-slate-500">{history.length} 筆</span></div>
-                    <div className="space-y-2">{history.map(sw => <div key={sw.id} className="bg-slate-900/60 border border-slate-700/70 rounded-xl p-3.5 flex items-center justify-between gap-3"><div className="min-w-0"><div className="flex items-center space-x-2 mb-1"><span className="font-bold text-white text-xs">{sw.requester}</span><span className="text-[10px] text-slate-400">({sw.targetDate} - {sw.roleLabel})</span></div><div className="text-[11px] text-slate-300">事由：{sw.reason}</div>{sw.reviewerNote && <div className="text-[11px] text-amber-300 mt-1">審核備注：{sw.reviewerNote}</div>}</div><div className="flex items-center gap-2 flex-shrink-0"><span className={`text-[10px] px-2.5 py-1 rounded-full font-bold ${sw.status === 'approved' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-rose-500/20 text-rose-400 border border-rose-500/30'}`}>{sw.status === 'approved' ? '✓ 已核准' : '✕ 已駁回'}</span>{isHighPrivilege(currentUser.role) && <button type="button" onClick={() => handleDeleteSwapHistory(sw.id)} className="text-[10px] text-rose-300 bg-rose-500/10 border border-rose-500/30 px-2 py-1 rounded-lg hover:bg-rose-500/20">刪除</button>}</div></div>)}{history.length === 0 && <div className="text-xs text-slate-500 text-center py-4 bg-slate-800/40 rounded-xl border border-slate-700/60">尚無可查看的歷史紀錄</div>}</div>
+                    <div className="space-y-2">{history.map(sw => <div key={sw.id} className="bg-slate-900/60 border border-slate-700/70 rounded-xl p-3.5 flex items-center justify-between gap-3"><div className="min-w-0"><div className="flex items-center space-x-2 mb-1"><span className="font-bold text-white text-xs">{sw.requester}</span><span className="text-[10px] text-slate-400">({sw.targetDate} - {sw.roleLabel})</span></div><div className="text-[11px] text-slate-300">事由：{sw.reason}</div>{sw.reviewerNote && <div className="text-[11px] text-amber-300 mt-1">審核備注：{sw.reviewerNote}</div>}</div><div className="flex items-center gap-2 flex-shrink-0"><span className={`text-[10px] px-2.5 py-1 rounded-full font-bold ${sw.status === 'approved' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : sw.status === 'withdrawn' ? 'bg-slate-500/20 text-slate-300 border border-slate-500/30' : 'bg-rose-500/20 text-rose-400 border border-rose-500/30'}`}>{sw.status === 'approved' ? '✓ 已核准' : sw.status === 'withdrawn' ? '↩ 已收回' : '✕ 已駁回'}</span>{isHighPrivilege(currentUser.role) && <button type="button" onClick={() => handleDeleteSwapHistory(sw.id)} className="text-[10px] text-rose-300 bg-rose-500/10 border border-rose-500/30 px-2 py-1 rounded-lg hover:bg-rose-500/20">刪除</button>}</div></div>)}{history.length === 0 && <div className="text-xs text-slate-500 text-center py-4 bg-slate-800/40 rounded-xl border border-slate-700/60">尚無可查看的歷史紀錄</div>}</div>
                   </div>;
                 })()}
 
@@ -2196,10 +2328,23 @@
                           value={m.role}
                           onChange={async (e) => {
                             const newRole = e.target.value;
+                            if (newRole === 'admin' && ['intern', 'host'].includes(m.dept)) {
+                              showToast('司儀組及實習生不能設定為總召，請先修改所屬組別。', 'error');
+                              e.target.value = m.role;
+                              return;
+                            }
                             const updated = { ...m, role: newRole };
-                            syncToCloud('members', m.id, updated, '權限同步失敗，請稍後重試');
-                            setMembers(prev => prev.map(item => item.id === m.id ? updated : item));
-                            showToast(`已更新 ${m.name} 權限`);
+                            setIsSaving(true);
+                            try {
+                              await syncToCloud('members', m.id, updated, '權限同步失敗，資料尚未更新');
+                              setMembers(prev => prev.map(item => item.id === m.id ? updated : item));
+                              if (currentUser?.id === m.id) setCurrentUser(updated);
+                              showToast(`已更新 ${m.name} 權限`);
+                            } catch (err) {
+                              e.target.value = m.role;
+                            } finally {
+                              setIsSaving(false);
+                            }
                           }}
                           className="bg-slate-900 border border-slate-700 text-xs text-white rounded p-1.5 focus:outline-none"
                         >
@@ -2217,6 +2362,33 @@
                       </div>
                     </div>
                   ))}
+
+                <div className="glass-panel rounded-2xl p-4 space-y-4 border border-purple-500/20">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <h3 className="text-sm font-bold text-white flex items-center gap-2"><i data-lucide="graduation-cap" className="w-4 h-4 text-purple-400"></i>實習生評價</h3>
+                      <p className="text-[11px] text-slate-400 mt-1">只有總召可以在這裡查看與編輯；實習生本人不會看到評價內容。</p>
+                    </div>
+                    <span className="text-[10px] text-purple-300 bg-purple-500/10 border border-purple-500/20 px-2 py-1 rounded-lg flex-shrink-0">總召私有</span>
+                  </div>
+                  <div className="space-y-3">
+                    {sortedMembers.filter(m => m.role === 'intern').map(intern => {
+                      const review = internReviews.find(r => r.internId === intern.id);
+                      return <div key={`intern-review-${intern.id}`} className="bg-slate-900/70 border border-slate-700/70 rounded-xl p-3 space-y-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="min-w-0"><div className="font-bold text-white text-xs">{intern.name}</div><div className="text-[10px] text-slate-500 truncate">{intern.title || '實習生'} · {intern.className || '未填寫班級'}</div></div>
+                          {review?.updatedAt && <span className="text-[10px] text-slate-500 flex-shrink-0">更新：{new Date(review.updatedAt).toLocaleDateString('zh-TW')}</span>}
+                        </div>
+                        <textarea defaultValue={review?.content || ''} id={`intern-review-${intern.id}`} rows="3" placeholder="輸入工作表現、學習態度、配合度等評價…" className="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-xs text-slate-200 focus:outline-none focus:border-purple-500"></textarea>
+                        <div className="flex justify-end gap-2">
+                          {review && <button type="button" onClick={() => handleDeleteInternReview(review.id)} className="px-2.5 py-1.5 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-300 text-[11px]">刪除評價</button>}
+                          <button type="button" onClick={() => { const el = document.getElementById(`intern-review-${intern.id}`); handleSaveInternReview(intern, el?.value || ''); }} className="px-3 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-500 text-white text-[11px] font-bold">儲存評價</button>
+                        </div>
+                      </div>;
+                    })}
+                    {sortedMembers.filter(m => m.role === 'intern').length === 0 && <div className="text-xs text-slate-500 text-center py-5">目前沒有權限為「實習生」的成員。</div>}
+                  </div>
+                </div>
                 </div>
               </div>
             )}
@@ -2313,19 +2485,19 @@
                       const assignments = editingScheduleData.assignments || {};
                       const assignedIds = Array.isArray(assignments[role.key]) ? assignments[role.key] : [];
                       // 老師不屬於任何班表崗位；實習生只出現在「實習生」崗位。
-                      // 總召仍可被指派，因此保留 admin；老師雖同為最高權限，不能被選入班表。
-                      // 班表分組完全依「所屬組別（dept）」決定，不看系統權限 role。
+                      // 總召固定歸入導播組，可直接從導播組指派；老師雖同為最高權限，不能被選入班表。
+                      // 一般班表分組依「所屬組別（dept）」決定；導播組額外包含總召。
                       // 例如：所屬組別=司儀組、系統權限=實習生的人，仍然要出現在司儀組。
-                      // 老師不屬於任何班表崗位；總召不會因為 role=admin 自動出現在任何一般組別。
+                      // 老師不屬於任何班表崗位；總召僅會因為「導播組」規則出現在導播候選名單。
                       const deptMembers = (role.key === 'cam1' || role.key === 'cam2')
                         ? members.filter(m => m.role !== 'teacher' && (m.dept === 'cam1' || m.dept === 'cam2' || m.dept === 'camera'))
-                        : members.filter(m => m.role !== 'teacher' && m.dept === role.deptKey);
+                        : members.filter(m => m.role !== 'teacher' && (m.dept === role.deptKey || (role.key === 'director' && (m.dept === 'admin' || m.role === 'admin'))));
                       const selectedMembers = assignedIds.map(id => members.find(m => m.id === id)).filter(Boolean);
                       const isCrossOpen = crossSupportRole === role.key;
                       // 跨組支援同樣依「所屬組別」找人；系統權限是實習生也不會影響分組。
                       const supportMembers = (crossSupportDept === 'cam1' || crossSupportDept === 'cam2')
                         ? members.filter(m => m.role !== 'teacher' && (m.dept === 'cam1' || m.dept === 'cam2' || m.dept === 'camera'))
-                        : members.filter(m => m.role !== 'teacher' && m.dept === crossSupportDept);
+                        : members.filter(m => m.role !== 'teacher' && (m.dept === crossSupportDept || (crossSupportDept === 'director' && (m.dept === 'admin' || m.role === 'admin'))));
 
                       return <div key={role.key} className="bg-slate-900/80 p-3 rounded-xl border border-slate-700 space-y-2">
                         <div className="flex items-center justify-between text-xs font-bold text-slate-200">
