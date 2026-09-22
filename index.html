@@ -1263,6 +1263,7 @@
           id: `r-${Date.now()}`,
           item: formData.get('item'),
           reporter: currentUser.name,
+          reporterId: currentUser.id,
           date: new Date().toISOString().split('T')[0],
           issue: formData.get('issue'),
           status: 'pending'
@@ -1270,7 +1271,7 @@
         setIsSaving(true);
         try {
           await syncToCloud('repairs', newRepair.id, newRepair, '報修同步失敗，資料尚未送出');
-          setRepairs(prev => [newRepair, ...prev]);
+          // 報修列表由 Firebase 即時監聽更新，這裡不再手動加入一次，避免送出後短暫出現重複紀錄。
           showToast('報修單已提交！');
           setIsRepairModalOpen(false);
         } catch (err) {
@@ -1286,6 +1287,37 @@
         if (!target) return;
         const updated = { ...target, status: target.status === 'pending' ? 'resolved' : 'pending', updatedAt: Date.now(), updatedBy: currentUser.id };
         try { await syncToCloud('repairs', repairId, updated, '設備狀態同步失敗'); setRepairs(prev => prev.map(r => r.id === repairId ? updated : r)); showToast(updated.status === 'resolved' ? '已標記為已處理' : '已移回待處理'); } catch (err) {}
+      };
+
+      const handleEditRepair = async (repairId) => {
+        const target = repairs.find(r => r.id === repairId);
+        if (!target) return;
+        const isMine = target.reporterId === currentUser?.id || (!target.reporterId && target.reporter === currentUser?.name);
+        if (!isMine) { showToast('只能編輯自己回報的設備報修紀錄', 'error'); return; }
+        const item = await requestPrompt('請修改報修項目：', target.item || '', '編輯報修項目');
+        if (item === null) return;
+        const issue = await requestPrompt('請修改問題描述：', target.issue || '', '編輯問題描述');
+        if (issue === null) return;
+        const updated = { ...target, item: item.trim(), issue: issue.trim(), updatedAt: Date.now(), updatedBy: currentUser.id };
+        try {
+          await syncToCloud('repairs', repairId, updated, '設備報修紀錄更新失敗');
+          setRepairs(prev => prev.map(r => r.id === repairId ? updated : r));
+          showToast('報修紀錄已更新');
+        } catch (err) {}
+      };
+
+      const handleAddRepairNote = async (repairId) => {
+        if (!isHighPrivilege(currentUser?.role)) { showToast('只有老師 / 總召可以加入報修備注', 'error'); return; }
+        const target = repairs.find(r => r.id === repairId);
+        if (!target) return;
+        const note = await requestPrompt('請填寫這筆設備報修紀錄的備注：', target.repairNote || '', '設備報修備注');
+        if (note === null) return;
+        const updated = { ...target, repairNote: note.trim(), noteUpdatedAt: Date.now(), noteUpdatedBy: currentUser.id, noteUpdatedByName: currentUser.name };
+        try {
+          await syncToCloud('repairs', repairId, updated, '設備報修備注同步失敗');
+          setRepairs(prev => prev.map(r => r.id === repairId ? updated : r));
+          showToast('報修備注已更新');
+        } catch (err) {}
       };
 
       const handleDeleteRepair = async (repairId) => {
@@ -2142,10 +2174,13 @@
                     </div>
                     <div className="space-y-3">
                       {list.map(rep => <div key={rep.id} className="bg-slate-900/70 border border-slate-700/80 rounded-xl p-4">
-                        <div className="flex items-start justify-between gap-3"><div className="min-w-0"><div className="font-bold text-white text-sm">{rep.item}</div><p className="text-xs text-slate-300 mt-1 leading-relaxed">{rep.issue}</p></div>
+                        <div className="flex items-start justify-between gap-3"><div className="min-w-0"><div className="font-bold text-white text-sm">{rep.item}</div><p className="text-xs text-slate-300 mt-1 leading-relaxed">{rep.issue}</p>{rep.repairNote && <div className="text-[11px] text-amber-300 mt-2">備注：{rep.repairNote}</div>}</div>
                         <span className={`flex-shrink-0 text-[10px] px-2 py-1 rounded-full font-bold ${section.key === 'pending' ? 'bg-rose-500/15 text-rose-300' : 'bg-emerald-500/15 text-emerald-300'}`}>{section.key === 'pending' ? '待處理' : '已處理'}</span></div>
                         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mt-3 pt-3 border-t border-slate-700/60"><span className="text-[10px] text-slate-500">回報人：{rep.reporter} ・ {rep.date}</span>
-                        {isHighPrivilege(currentUser.role) && <div className="flex items-center gap-2"><button onClick={() => handleUpdateRepairStatus(rep.id)} className="text-indigo-300 text-[11px] font-bold bg-indigo-500/10 border border-indigo-500/20 px-2.5 py-1.5 rounded-lg">{section.key === 'pending' ? '標記為已處理' : '移回待處理'}</button><button onClick={() => handleDeleteRepair(rep.id)} className="text-rose-300 text-[11px] font-bold bg-rose-500/10 border border-rose-500/20 px-2.5 py-1.5 rounded-lg">刪除</button></div>}</div>
+                        <div className="flex items-center gap-2 flex-wrap justify-end">
+                          {(rep.reporterId === currentUser.id || (!rep.reporterId && rep.reporter === currentUser.name)) && <button onClick={() => handleEditRepair(rep.id)} className="text-sky-300 text-[11px] font-bold bg-sky-500/10 border border-sky-500/20 px-2.5 py-1.5 rounded-lg">編輯</button>}
+                          {isHighPrivilege(currentUser.role) && <><button onClick={() => handleAddRepairNote(rep.id)} className="text-amber-300 text-[11px] font-bold bg-amber-500/10 border border-amber-500/20 px-2.5 py-1.5 rounded-lg">{rep.repairNote ? '編輯備注' : '加入備注'}</button><button onClick={() => handleUpdateRepairStatus(rep.id)} className="text-indigo-300 text-[11px] font-bold bg-indigo-500/10 border border-indigo-500/20 px-2.5 py-1.5 rounded-lg">{section.key === 'pending' ? '標記為已處理' : '移回待處理'}</button><button onClick={() => handleDeleteRepair(rep.id)} className="text-rose-300 text-[11px] font-bold bg-rose-500/10 border border-rose-500/20 px-2.5 py-1.5 rounded-lg">刪除</button></>}
+                        </div></div>
                       </div>)}
                       {list.length === 0 && <div className="text-xs text-slate-500 text-center py-6 bg-slate-900/40 rounded-xl border border-slate-700/50">{section.key === 'pending' ? '目前沒有待處理的設備故障' : '目前沒有已處理的設備故障'}</div>}
                     </div>
@@ -2173,6 +2208,7 @@
                         <span className="text-[10px] bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded-full font-bold">審核中</span>
                       </div>
                       <div className="text-xs text-slate-300 space-y-0.5">
+                        <div>申請項目：{sw.requestType === 'preparation' ? '前置作業無法參與' : '直播當日請假／換班'}</div>
                         <div>目標日期：{sw.targetDate} ({sw.roleLabel})</div>
                         <div>請假事由：{sw.reason}</div>
                       </div>
@@ -2208,7 +2244,7 @@
                   if (!canViewHistory && myHistory.length === 0) return null;
                   return <div className="space-y-3 pt-4 border-t border-slate-700">
                     <div className="flex items-center justify-between"><div><h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">📋 歷史審核紀錄</h3><p className="text-[10px] text-slate-500 mt-1">{canViewHistory ? '老師 / 總召可查看全部請假/換班歷史' : '僅顯示你本人提出的歷史申請'}</p></div><span className="text-[10px] text-slate-500">{history.length} 筆</span></div>
-                    <div className="space-y-2">{history.map(sw => <div key={sw.id} className="bg-slate-900/60 border border-slate-700/70 rounded-xl p-3.5 flex items-center justify-between gap-3"><div className="min-w-0"><div className="flex items-center space-x-2 mb-1"><span className="font-bold text-white text-xs">{sw.requester}</span><span className="text-[10px] text-slate-400">({sw.targetDate} - {sw.roleLabel})</span></div><div className="text-[11px] text-slate-300">事由：{sw.reason}</div>{sw.reviewerNote && <div className="text-[11px] text-amber-300 mt-1">審核備注：{sw.reviewerNote}</div>}</div><div className="flex items-center gap-2 flex-shrink-0"><span className={`text-[10px] px-2.5 py-1 rounded-full font-bold ${sw.status === 'approved' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : sw.status === 'withdrawn' ? 'bg-slate-500/20 text-slate-300 border border-slate-500/30' : 'bg-rose-500/20 text-rose-400 border border-rose-500/30'}`}>{sw.status === 'approved' ? '✓ 已核准' : sw.status === 'withdrawn' ? '↩ 已收回' : '✕ 已駁回'}</span>{isHighPrivilege(currentUser.role) && <button type="button" onClick={() => handleDeleteSwapHistory(sw.id)} className="text-[10px] text-rose-300 bg-rose-500/10 border border-rose-500/30 px-2 py-1 rounded-lg hover:bg-rose-500/20">刪除</button>}</div></div>)}{history.length === 0 && <div className="text-xs text-slate-500 text-center py-4 bg-slate-800/40 rounded-xl border border-slate-700/60">尚無可查看的歷史紀錄</div>}</div>
+                    <div className="space-y-2">{history.map(sw => <div key={sw.id} className="bg-slate-900/60 border border-slate-700/70 rounded-xl p-3.5 flex items-center justify-between gap-3"><div className="min-w-0"><div className="flex items-center space-x-2 mb-1"><span className="font-bold text-white text-xs">{sw.requester}</span><span className="text-[10px] text-slate-400">({sw.targetDate} - {sw.roleLabel})</span></div><div className="text-[11px] text-slate-300">申請項目：{sw.requestType === 'preparation' ? '前置作業無法參與' : '直播當日請假／換班'}</div><div className="text-[11px] text-slate-300">事由：{sw.reason}</div>{sw.reviewerNote && <div className="text-[11px] text-amber-300 mt-1">審核備注：{sw.reviewerNote}</div>}</div><div className="flex items-center gap-2 flex-shrink-0"><span className={`text-[10px] px-2.5 py-1 rounded-full font-bold ${sw.status === 'approved' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : sw.status === 'withdrawn' ? 'bg-slate-500/20 text-slate-300 border border-slate-500/30' : 'bg-rose-500/20 text-rose-400 border border-rose-500/30'}`}>{sw.status === 'approved' ? '✓ 已核准' : sw.status === 'withdrawn' ? '↩ 已收回' : '✕ 已駁回'}</span>{isHighPrivilege(currentUser.role) && <button type="button" onClick={() => handleDeleteSwapHistory(sw.id)} className="text-[10px] text-rose-300 bg-rose-500/10 border border-rose-500/30 px-2 py-1 rounded-lg hover:bg-rose-500/20">刪除</button>}</div></div>)}{history.length === 0 && <div className="text-xs text-slate-500 text-center py-4 bg-slate-800/40 rounded-xl border border-slate-700/60">尚無可查看的歷史紀錄</div>}</div>
                   </div>;
                 })()}
 
