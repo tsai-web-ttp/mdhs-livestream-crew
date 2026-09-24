@@ -1,0 +1,16 @@
+{
+  "name": "明道中學直播團隊系統 Mingdao MDMT",
+  "short_name": "Mingdao MDMT",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#07142f",
+  "theme_color": "#07142f",
+  "icons": [
+    {
+      "src": "apple-touch-icon.png",
+      "sizes": "1024x1024",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
