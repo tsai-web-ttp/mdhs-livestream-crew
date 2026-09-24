@@ -1,0 +1,11 @@
+{
+  "name": "明道中學直播團隊系統",
+  "short_name": "MDMT",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#06142d",
+  "theme_color": "#06142d",
+  "icons": [
+    {"src":"icon-512.png","sizes":"512x512","type":"image/png","purpose":"any maskable"}
+  ]
+}
