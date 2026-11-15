@@ -1,16 +1,33 @@
 {
-  "name": "明道中學直播團隊系統 Mingdao MDMT",
-  "short_name": "Mingdao MDMT",
-  "start_url": ".",
+  "name": "明道中學直播團隊系統",
+  "short_name": "明道直播",
+  "description": "明道中學直播團隊 活動與朝會排班系統",
+  "id": "./",
+  "start_url": "./",
+  "scope": "./",
   "display": "standalone",
-  "background_color": "#07142f",
-  "theme_color": "#07142f",
+  "orientation": "portrait-primary",
+  "background_color": "#071328",
+  "theme_color": "#071328",
+  "lang": "zh-TW",
   "icons": [
     {
-      "src": "apple-touch-icon.png",
-      "sizes": "1024x1024",
+      "src": "icon-192.png",
+      "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ]
 }
